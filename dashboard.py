@@ -496,6 +496,10 @@ def main():
     # Sidebar for filters and controls
     st.sidebar.header("Dashboard Controls")
     
+    # Initialize filter variables
+    selected_region = 'All'
+    selected_province = 'All'
+    
     # Region filter
     if 'Region' in df_main.columns:
         regions = ['All'] + sorted(df_main['Region'].dropna().unique().tolist())
@@ -508,28 +512,65 @@ def main():
     else:
         df_filtered = df_main
     
+    # Province filter
+    if 'Provinsi' in df_filtered.columns:
+        # Get available provinces (excluding 'INDONESIA' if it exists for aggregated data)
+        available_provinces = df_filtered['Provinsi'].dropna().unique().tolist()
+        if 'INDONESIA' in available_provinces:
+            available_provinces.remove('INDONESIA')
+        
+        provinces = ['All'] + sorted(available_provinces)
+        selected_province = st.sidebar.selectbox("Select Province:", provinces)
+        
+        if selected_province != 'All':
+            df_filtered = df_filtered[df_filtered['Provinsi'] == selected_province]
+    
+    # Display active filters
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("Active Filters")
+    if 'Region' in df_main.columns and selected_region != 'All':
+        st.sidebar.write(f"🌍 **Region:** {selected_region}")
+    if 'Provinsi' in df_main.columns and selected_province != 'All':
+        st.sidebar.write(f"📍 **Province:** {selected_province}")
+    if (selected_region == 'All' and selected_province == 'All'):
+        st.sidebar.write("🌐 Showing all data")
+    
+    # Show number of provinces in current selection
+    num_provinces = len(df_filtered['Provinsi'].unique()) if 'Provinsi' in df_filtered.columns else 0
+    st.sidebar.write(f"📊 **Provinces shown:** {num_provinces}")
+    
     # Main dashboard layout
     col1, col2, col3, col4 = st.columns(4)
     
-    # Key metrics
+    # Key metrics (adjusted for filtered data)
     with col1:
         if 'Jumlah Penduduk' in df_filtered.columns:
-            total_pop = df_filtered['Jumlah Penduduk'].sum()
-            st.metric("Total Population (thousands)", f"{total_pop:,.0f}")
+            if selected_province != 'All' and len(df_filtered) > 0:
+                # For specific province, show that province's population
+                total_pop = df_filtered['Jumlah Penduduk'].iloc[0] if len(df_filtered) > 0 else 0
+                st.metric("Population (thousands)", f"{total_pop:,.0f}")
+            else:
+                # For all/regional data, sum up populations (excluding INDONESIA totals)
+                pop_data = df_filtered[df_filtered['Provinsi'] != "INDONESIA"] if 'INDONESIA' in df_filtered['Provinsi'].values else df_filtered
+                total_pop = pop_data['Jumlah Penduduk'].sum() if len(pop_data) > 0 else 0
+                st.metric("Total Population (thousands)", f"{total_pop:,.0f}")
     
     with col2:
         if 'Tindak Pidana 2023' in df_filtered.columns:
-            avg_crime = df_filtered['Tindak Pidana 2023'].mean()
+            crime_data = df_filtered[df_filtered['Provinsi'] != "INDONESIA"] if 'INDONESIA' in df_filtered['Provinsi'].values else df_filtered
+            avg_crime = crime_data['Tindak Pidana 2023'].mean() if len(crime_data) > 0 else 0
             st.metric("Avg Crime Rate", f"{avg_crime:.1f}")
     
     with col3:
         if 'gini_ratio_2023' in df_filtered.columns:
-            avg_gini = df_filtered['gini_ratio_2023'].mean()
+            gini_data = df_filtered[df_filtered['Provinsi'] != "INDONESIA"] if 'INDONESIA' in df_filtered['Provinsi'].values else df_filtered
+            avg_gini = gini_data['gini_ratio_2023'].mean() if len(gini_data) > 0 else 0
             st.metric("Avg Gini Ratio", f"{avg_gini:.3f}")
     
     with col4:
         if 'Pendidikan Terakhir SMA/PT' in df_filtered.columns:
-            avg_education = df_filtered['Pendidikan Terakhir SMA/PT'].mean()
+            edu_data = df_filtered[df_filtered['Provinsi'] != "INDONESIA"] if 'INDONESIA' in df_filtered['Provinsi'].values else df_filtered
+            avg_education = edu_data['Pendidikan Terakhir SMA/PT'].mean() if len(edu_data) > 0 else 0
             st.metric("Avg Higher Education %", f"{avg_education:.1f}%")
     
     st.markdown("---")
@@ -607,11 +648,11 @@ def main():
             st.plotly_chart(corr_fig, use_container_width=True)
         
         # Correlation table
-        numeric_cols = df_filtered.select_dtypes(include=[np.number]).columns
-        if len(numeric_cols) > 1:
-            st.subheader("Correlation Coefficients")
-            corr_matrix = df_filtered[numeric_cols].corr()
-            st.dataframe(corr_matrix.style.background_gradient(cmap='RdBu'))
+        # numeric_cols = df_filtered.select_dtypes(include=[np.number]).columns
+        # if len(numeric_cols) > 1:
+        #     st.subheader("Correlation Coefficients")
+        #     corr_matrix = df_filtered[numeric_cols].corr()
+        #     st.dataframe(corr_matrix.style.background_gradient(cmap='RdBu'))
     
     with tab3:
         st.subheader("Time Series Analysis")
