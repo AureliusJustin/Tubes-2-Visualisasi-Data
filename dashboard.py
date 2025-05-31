@@ -222,17 +222,34 @@ def load_and_process_data():
     return df_asli, df_tindak_pidana_time_series
 
 # Load data function
-@st.cache_data
-def load_data():
-    df = pd.read_csv('data.csv')
-    return df
+# @st.cache_data
+# def load_data():
+#     df = pd.read_csv('data.csv')
+#     return df
 
 # Load geojson data function
 @st.cache_data
 def load_geojson():
-    """Load Indonesia provinces geojson data"""
+    """Load Indonesia provinces geojson data and filter to only Indonesian provinces (robust version)"""
     with open('map/indonesia-prov.geojson', 'r') as f:
         geojson_data = json.load(f)
+    # List of valid Indonesian provinces (matching your mapping)
+    indonesian_provinces = set([
+        'ACEH', 'SUMATERA UTARA', 'SUMATERA BARAT', 'RIAU', 'KEPULAUAN RIAU',
+        'JAMBI', 'SUMATERA SELATAN', 'BENGKULU', 'LAMPUNG', 'KEPULAUAN BANGKA BELITUNG',
+        'DKI JAKARTA', 'JAWA BARAT', 'JAWA TENGAH', 'DI YOGYAKARTA', 'JAWA TIMUR', 'BANTEN',
+        'BALI', 'NUSA TENGGARA BARAT', 'NUSA TENGGARA TIMUR',
+        'KALIMANTAN BARAT', 'KALIMANTAN TENGAH', 'KALIMANTAN SELATAN', 'KALIMANTAN TIMUR', 'KALIMANTAN UTARA',
+        'SULAWESI UTARA', 'SULAWESI TENGAH', 'SULAWESI SELATAN', 'SULAWESI TENGGARA', 'GORONTALO', 'SULAWESI BARAT',
+        'MALUKU', 'MALUKU UTARA', 'PAPUA', 'PAPUA BARAT'
+    ])
+    filtered_features = []
+    for feature in geojson_data['features']:
+        props = feature.get('properties', {})
+        prov_name = props.get('Propinsi') or props.get('NAME_1') or props.get('name')
+        if prov_name in indonesian_provinces:
+            filtered_features.append(feature)
+    geojson_data['features'] = filtered_features
     return geojson_data
 
 # Province name mapping function
@@ -294,22 +311,36 @@ def merge_geojson_csv(geojson_data, csv_data):
     
     return merged_df
 
-def create_bubble_chart(df, x_col, y_col, size_col, color_col=None, title="Bubble Chart"):
-    """Create an interactive bubble chart using Plotly"""
-    
-    if color_col and color_col in df.columns:
+def create_bubble_chart(df, x_col, y_col, size_col, color_col=None, title="Bubble Chart", region_filter=None, province_filter=None):
+    """Create an interactive bubble chart using Plotly with dynamic coloring based on region/province filter"""
+    # If province_filter is set to a specific province, color by province (legend shows province)
+    if province_filter and province_filter != 'All' and 'Provinsi' in df.columns:
+        fig = px.scatter(
+            df,
+            x=x_col,
+            y=y_col,
+            size=size_col,
+            color='Provinsi',
+            hover_name="Provinsi",
+            hover_data={"Region": True},
+            title=title,
+            size_max=60
+        )
+    # If region_filter is set to a specific region, color by province
+    elif region_filter and region_filter != 'All' and 'Provinsi' in df.columns:
         fig = px.scatter(
             df, 
             x=x_col, 
             y=y_col, 
             size=size_col,
-            color=color_col,
+            color='Provinsi',
             hover_name="Provinsi",
             hover_data={"Region": True},
             title=title,
             size_max=60
         )
     else:
+        # Color by region (default behavior)
         fig = px.scatter(
             df, 
             x=x_col, 
@@ -320,13 +351,11 @@ def create_bubble_chart(df, x_col, y_col, size_col, color_col=None, title="Bubbl
             title=title,
             size_max=60
         )
-    
     fig.update_layout(
         height=600,
         showlegend=True,
         hovermode='closest'
     )
-    
     return fig
 
 def create_correlation_heatmap(df):
@@ -399,86 +428,179 @@ def create_regional_comparison(df):
         return regional_stats
     return None
 
-def create_choropleth_map(df, metric, geojson_data, province_mapping):
-    """Create a choropleth map using folium"""
-    
+def create_choropleth_map(df, metric, geojson_data, province_mapping, region_filter=None, province_filter=None):
+    """Create a choropleth map using folium, strictly restricted to Indonesia bounds and zoom, and highlight only selected region/province if filtered"""
     # Prepare data based on selected metric
     if metric == 'Crime Rate 2023':
-        map_data = df[['Provinsi', 'Tindak Pidana 2023']].dropna()
+        map_data = df[['Provinsi', 'Tindak Pidana 2023', 'Region']].dropna(subset=['Provinsi'])
         metric_col = 'Tindak Pidana 2023'
         title = 'Crime Rate per 100,000 Population (2023)'
     elif metric == 'Population':
-        map_data = df[['Provinsi', 'Jumlah Penduduk']].dropna()
+        map_data = df[['Provinsi', 'Jumlah Penduduk', 'Region']].dropna(subset=['Provinsi'])
         metric_col = 'Jumlah Penduduk'
         title = 'Population by Province (thousands)'
     elif metric == 'Gini Ratio':
-        map_data = df[['Provinsi', 'gini_ratio_2023']].dropna()
+        map_data = df[['Provinsi', 'gini_ratio_2023', 'Region']].dropna(subset=['Provinsi'])
         metric_col = 'gini_ratio_2023'
         title = 'Gini Ratio by Province (2023)'
     elif metric == 'Income':
-        map_data = df[['Provinsi', 'Pendapatan Agustus']].dropna()
+        map_data = df[['Provinsi', 'Pendapatan Agustus', 'Region']].dropna(subset=['Provinsi'])
         metric_col = 'Pendapatan Agustus'
         title = 'Average Income by Province (August 2023)'
     else:
-        # Default to crime rate
-        map_data = df[['Provinsi', 'Tindak Pidana 2023']].dropna()
+        map_data = df[['Provinsi', 'Tindak Pidana 2023', 'Region']].dropna(subset=['Provinsi'])
         metric_col = 'Tindak Pidana 2023'
         title = 'Crime Rate per 100,000 Population (2023)'
-    
-    # Create reverse mapping for geojson (CSV province name -> GeoJSON province name)
+
     reverse_mapping = {v: k for k, v in province_mapping.items()}
-    
-    # Create a map centered on Indonesia
+
+    indonesia_sw = [-11.0, 94.0]
+    indonesia_ne = [6.0, 141.0]
+
     m = folium.Map(
-        location=[-2.5, 118.0],  # Center of Indonesia
+        location=[-2.5, 118.0],
         zoom_start=5,
-        tiles='CartoDB positron'
+        tiles='CartoDB positron',
+        max_bounds=True,
+        min_zoom=4,
+        max_zoom=8
     )
-    
-    # Create color scale
+    m.fit_bounds([indonesia_sw, indonesia_ne])
+
+    folium.Rectangle(
+        bounds=[indonesia_sw, indonesia_ne],
+        color="#ff7800",
+        fill=False,
+        weight=2
+    ).add_to(m)
+
+    bounds_js = f'''
+        <script>
+        var map = window._last_folium_map || window.map;
+        if (map) {{
+            map.setMaxBounds([[{indonesia_sw[0]}, {indonesia_sw[1]}], [{indonesia_ne[0]}, {indonesia_ne[1]}]]);
+        }}
+        </script>
+    '''
+    from folium import Element
+    m.get_root().html.add_child(Element(bounds_js))
+
     if len(map_data) > 0:
-        min_val = map_data[metric_col].min()
-        max_val = map_data[metric_col].max()
-        
-        # Create a colormap
+        # Always exclude 'INDONESIA' (national aggregate) from all province-based calculations and coloring
+        map_data = map_data[map_data['Provinsi'] != 'INDONESIA'] if 'INDONESIA' in map_data['Provinsi'].values else map_data
+        if metric == 'Population':
+            min_val = map_data[metric_col].min()
+            max_val = map_data[metric_col].max()
+        else:
+            min_val = map_data[metric_col].min()
+            max_val = map_data[metric_col].max()
         colormap = cm.LinearColormap(
             colors=['#ffffcc', '#ff4444'],
             vmin=min_val,
             vmax=max_val
         )
-        
-        # Create a dictionary for the choropleth
         province_data = {}
+        region_data = {}
         for _, row in map_data.iterrows():
             geojson_name = reverse_mapping.get(row['Provinsi'])
             if geojson_name:
                 province_data[geojson_name] = row[metric_col]
-        
-        # Add choropleth layer
+                region_data[geojson_name] = row['Region']
+
+        # Determine which provinces to highlight
+        def highlight_feature(feature):
+            prov_name = feature['properties']['Propinsi']
+            region_name = region_data.get(prov_name)
+            # Province filter takes precedence
+            if province_filter and province_filter != 'All':
+                if prov_name == reverse_mapping.get(province_filter):
+                    # Use the colormap's last color directly (force red)
+                    return {
+                        'fillColor': '#ff4444',  # hardcode to the highest color in the colormap
+                        'color': 'black',
+                        'weight': 3,
+                        'fillOpacity': 1.0,
+                    }
+                else:
+                    return {
+                        'fillColor': '#cccccc',
+                        'color': '#bbbbbb',
+                        'weight': 1,
+                        'fillOpacity': 0.2,
+                    }
+            elif region_filter and region_filter != 'All':
+                if region_name == region_filter:
+                    return {
+                        'fillColor': colormap(province_data.get(prov_name, min_val)),
+                        'color': 'black',
+                        'weight': 1.5,
+                        'fillOpacity': 0.8,
+                    }
+                else:
+                    return {
+                        'fillColor': '#cccccc',
+                        'color': '#bbbbbb',
+                        'weight': 1,
+                        'fillOpacity': 0.3,
+                    }
+            else:
+                return {
+                    'fillColor': colormap(province_data.get(prov_name, min_val)),
+                    'color': 'black',
+                    'weight': 1,
+                    'fillOpacity': 0.7,
+                }
+
+        # Add tooltip with value for each province
         folium.GeoJson(
             geojson_data,
-            style_function=lambda feature: {
-                'fillColor': colormap(province_data.get(feature['properties']['Propinsi'], min_val)),
-                'color': 'black',
-                'weight': 1,
-                'fillOpacity': 0.7,
-            },
+            style_function=highlight_feature,
             tooltip=folium.features.GeoJsonTooltip(
                 fields=['Propinsi'],
                 aliases=['Province:'],
-                localize=True
+                localize=True,
+                labels=False,
+                sticky=True,
+                toLocaleString=True,
+                style=("background-color: white; color: #333; font-weight: bold; border-radius: 4px; padding: 4px;"),
+                parse_html=True,
+                # Custom function for tooltip content is not supported directly, so we use the following workaround:
+                # We'll add the value to the feature properties before passing to GeoJson
+            ),
+            popup=None
+        ).add_to(m)
+
+        # Workaround: Add value to each feature's properties for tooltip
+        for feature in geojson_data['features']:
+            prov_name = feature['properties']['Propinsi']
+            value = province_data.get(prov_name, None)
+            if value is not None:
+                feature['properties']['_tooltip'] = f"<b>{prov_name}</b><br>Value: {value:,.2f}"
+            else:
+                feature['properties']['_tooltip'] = f"<b>{prov_name}</b><br>Value: N/A"
+
+        # Now re-add the GeoJson with the custom tooltip field
+        folium.GeoJson(
+            geojson_data,
+            style_function=highlight_feature,
+            tooltip=folium.features.GeoJsonTooltip(
+                fields=['_tooltip'],
+                aliases=[''],
+                localize=True,
+                labels=False,
+                sticky=True,
+                parse_html=True,
+                style=("background-color: white; color: #333; font-weight: bold; border-radius: 4px; padding: 4px;")
             ),
             popup=folium.features.GeoJsonPopup(
-                fields=['Propinsi'],
-                aliases=['Province:'],
-                localize=True
+                fields=['_tooltip'],
+                aliases=[''],
+                localize=True,
+                labels=False,
+                parse_html=True,
+                style=("background-color: white; color: #333; font-weight: bold; border-radius: 4px; padding: 4px;")
             )
         ).add_to(m)
-        
-        # Add colormap to map
-        colormap.caption = title
-        colormap.add_to(m)
-    
     return m
 
 def main():
@@ -493,6 +615,10 @@ def main():
         st.error("Failed to load data. Please check your dataset files.")
         return
     
+    # Exclude 'INDONESIA' from all dataframes at the start of main analysis
+    if 'Provinsi' in df_main.columns:
+        df_main = df_main[df_main['Provinsi'] != 'INDONESIA']
+    
     # Sidebar for filters and controls
     st.sidebar.header("Dashboard Controls")
     
@@ -504,7 +630,6 @@ def main():
     if 'Region' in df_main.columns:
         regions = ['All'] + sorted(df_main['Region'].dropna().unique().tolist())
         selected_region = st.sidebar.selectbox("Select Region:", regions)
-        
         if selected_region != 'All':
             df_filtered = df_main[df_main['Region'] == selected_region]
         else:
@@ -514,14 +639,9 @@ def main():
     
     # Province filter
     if 'Provinsi' in df_filtered.columns:
-        # Get available provinces (excluding 'INDONESIA' if it exists for aggregated data)
         available_provinces = df_filtered['Provinsi'].dropna().unique().tolist()
-        if 'INDONESIA' in available_provinces:
-            available_provinces.remove('INDONESIA')
-        
         provinces = ['All'] + sorted(available_provinces)
         selected_province = st.sidebar.selectbox("Select Province:", provinces)
-        
         if selected_province != 'All':
             df_filtered = df_filtered[df_filtered['Provinsi'] == selected_province]
     
@@ -603,7 +723,9 @@ def main():
         if len(numeric_cols) >= 3:
             bubble_fig = create_bubble_chart(
                 df_filtered, x_axis, y_axis, size_axis, 
-                title=f"{y_axis} vs {x_axis} (Bubble size: {size_axis})"
+                title=f"{y_axis} vs {x_axis} (Bubble size: {size_axis})",
+                region_filter=selected_region,
+                province_filter=selected_province
             )
             st.plotly_chart(bubble_fig, use_container_width=True)
         
@@ -615,11 +737,17 @@ def main():
             
             with col1:
                 if 'Pendidikan Terakhir SMA/PT' in df_filtered.columns and 'Tindak Pidana 2023' in df_filtered.columns:
+                    if selected_province != 'All':
+                        color_col = 'Provinsi'
+                    elif selected_region != 'All':
+                        color_col = 'Provinsi'
+                    else:
+                        color_col = 'Region'
                     fig1 = px.scatter(
                         df_filtered, 
                         x='Pendidikan Terakhir SMA/PT', 
                         y='Tindak Pidana 2023',
-                        color='Region',
+                        color=color_col,
                         hover_name='Provinsi',
                         title="Education vs Crime Rate",
                         trendline="ols"
@@ -628,11 +756,17 @@ def main():
             
             with col2:
                 if 'gini_ratio_2023' in df_filtered.columns and 'Tindak Pidana 2023' in df_filtered.columns:
+                    if selected_province != 'All':
+                        color_col = 'Provinsi'
+                    elif selected_region != 'All':
+                        color_col = 'Provinsi'
+                    else:
+                        color_col = 'Region'
                     fig2 = px.scatter(
                         df_filtered, 
                         x='gini_ratio_2023', 
                         y='Tindak Pidana 2023',
-                        color='Region',
+                        color=color_col,
                         hover_name='Provinsi',
                         title="Income Inequality vs Crime Rate",
                         trendline="ols"
@@ -696,7 +830,8 @@ def main():
                         title="Crime Rate Trends by Province (2021-2023)",
                         markers=True
                     )
-                    
+                    fig_trend.update_xaxes(dtick=1, tickformat="d")
+                    fig_trend.update_yaxes(title_text="Crime Rate")
                     st.plotly_chart(fig_trend, use_container_width=True)
     
     with tab4:
@@ -735,10 +870,9 @@ def main():
             # Create and display choropleth map
             if selected_metric and geojson_data and province_mapping:
                 with st.spinner("Creating choropleth map..."):
-                    folium_map = create_choropleth_map(df_filtered, selected_metric, geojson_data, province_mapping)
-                    
-                    # Display the map
-                    map_data = st_folium(folium_map, width=700, height=500)
+                    folium_map = create_choropleth_map(df_filtered, selected_metric, geojson_data, province_mapping, region_filter=selected_region, province_filter=selected_province)
+                # Display the map outside the spinner so it always renders
+                map_data = st_folium(folium_map, width=700, height=500)
                 
                 # Show interpretation
                 if selected_metric == 'Crime Rate 2023':
@@ -758,7 +892,10 @@ def main():
         
         # Data table
         st.subheader("Detailed Provincial Data")
-        st.dataframe(df_filtered, use_container_width=True)
+        # Reset index to start from 1 for display
+        df_display = df_filtered.reset_index(drop=True)
+        df_display.index = df_display.index + 1
+        st.dataframe(df_display, use_container_width=True)
 
 if __name__ == "__main__":
     main()
