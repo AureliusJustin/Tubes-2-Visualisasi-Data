@@ -13,6 +13,7 @@ import folium
 from folium import plugins
 import branca.colormap as cm
 from streamlit_folium import st_folium
+import uuid
 warnings.filterwarnings('ignore')
 
 # Set page config
@@ -454,6 +455,11 @@ def create_choropleth_map(df, metric, geojson_data, province_mapping, region_fil
 
     reverse_mapping = {v: k for k, v in province_mapping.items()}
 
+    # Debug output
+    print(f"[DEBUG] map_data rows: {len(map_data)}")
+    print(f"[DEBUG] map_data Provinsi unique: {map_data['Provinsi'].unique()}")
+    print(f"[DEBUG] reverse_mapping keys: {list(reverse_mapping.keys())}")
+
     indonesia_sw = [-11.0, 94.0]
     indonesia_ne = [6.0, 141.0]
 
@@ -499,6 +505,9 @@ def create_choropleth_map(df, metric, geojson_data, province_mapping, region_fil
             vmin=min_val,
             vmax=max_val
         )
+        colormap.caption = title  # Add a caption to the legend
+        # Add the colormap legend to the map
+        colormap.add_to(m)
         province_data = {}
         region_data = {}
         for _, row in map_data.iterrows():
@@ -506,7 +515,7 @@ def create_choropleth_map(df, metric, geojson_data, province_mapping, region_fil
             if geojson_name:
                 province_data[geojson_name] = row[metric_col]
                 region_data[geojson_name] = row['Region']
-
+        print(f"[DEBUG] province_data sample: {list(province_data.items())[:5]}")
         # Determine which provinces to highlight
         def highlight_feature(feature):
             prov_name = feature['properties']['Propinsi']
@@ -739,29 +748,32 @@ def render_regional_tab(df_filtered, selected_region, selected_province):
 
 def render_choropleth_section(df_filtered, selected_region, selected_province):
     st.subheader("Interactive Choropleth Map")
-    try:
-        geojson_data = load_geojson()
-        province_mapping = create_province_mapping()
-        metric_options = ['Crime Rate 2023', 'Population', 'Gini Ratio', 'Income']
-        selected_metric = st.selectbox("Select Metric to Visualize:", metric_options)
-        if selected_metric and geojson_data and province_mapping:
-            with st.spinner("Creating choropleth map..."):
-                folium_map = create_choropleth_map(
-                    df_filtered, selected_metric, geojson_data, province_mapping,
-                    region_filter=selected_region, province_filter=selected_province
-                )
-            map_data = st_folium(folium_map, width=700, height=500)
-            if selected_metric == 'Crime Rate 2023':
-                st.info("🔍 **Map Interpretation**: Darker red areas indicate higher crime rates per 100,000 population.")
-            elif selected_metric == 'Population':
-                st.info("🔍 **Map Interpretation**: Darker red areas indicate higher population density.")
-            elif selected_metric == 'Gini Ratio':
-                st.info("🔍 **Map Interpretation**: Darker red areas indicate higher income inequality (Gini ratio closer to 1).")
-            elif selected_metric == 'Income':
-                st.info("🔍 **Map Interpretation**: Darker red areas indicate higher average income levels.")
-    except Exception as e:
-        st.error(f"Error loading map data: {str(e)}")
-        st.info("Please ensure the GeoJSON file is available in the map/ directory.")
+    geojson_data = load_geojson()
+    province_mapping = create_province_mapping()
+    metric_options = ['Crime Rate 2023', 'Population', 'Gini Ratio', 'Income']
+    # Use selectbox with no key and default index=0 for proper interactivity and default rendering
+    selected_metric = st.selectbox(
+        "Select Metric to Visualize:",
+        metric_options,
+        index=0
+    )
+    if geojson_data and province_mapping:
+        with st.spinner("Creating choropleth map..."):
+            folium_map = create_choropleth_map(
+                df_filtered, selected_metric, geojson_data, province_mapping,
+                region_filter=selected_region, province_filter=selected_province
+            )
+        st_folium(folium_map, width=700, height=500)
+        if selected_metric == 'Crime Rate 2023':
+            st.info("🔍 **Map Interpretation**: Darker red areas indicate higher crime rates per 100,000 population.")
+        elif selected_metric == 'Population':
+            st.info("🔍 **Map Interpretation**: Darker red areas indicate higher population density.")
+        elif selected_metric == 'Gini Ratio':
+            st.info("🔍 **Map Interpretation**: Darker red areas indicate higher income inequality (Gini ratio closer to 1).")
+        elif selected_metric == 'Income':
+            st.info("🔍 **Map Interpretation**: Darker red areas indicate higher average income levels.")
+    else:
+        st.warning("GeoJSON or province mapping not loaded.")
 
 def render_provincial_data_table(df_filtered):
     st.subheader("Detailed Provincial Data")
