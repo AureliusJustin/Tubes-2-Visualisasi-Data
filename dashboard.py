@@ -603,6 +603,172 @@ def create_choropleth_map(df, metric, geojson_data, province_mapping, region_fil
         ).add_to(m)
     return m
 
+# --- Visualization Components Modularization ---
+
+def render_key_metrics(df_filtered, selected_province):
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        if 'Jumlah Penduduk' in df_filtered.columns:
+            if selected_province != 'All' and len(df_filtered) > 0:
+                total_pop = df_filtered['Jumlah Penduduk'].iloc[0] if len(df_filtered) > 0 else 0
+                st.metric("Population (thousands)", f"{total_pop:,.0f}")
+            else:
+                pop_data = df_filtered[df_filtered['Provinsi'] != "INDONESIA"] if 'INDONESIA' in df_filtered['Provinsi'].values else df_filtered
+                total_pop = pop_data['Jumlah Penduduk'].sum() if len(pop_data) > 0 else 0
+                st.metric("Total Population (thousands)", f"{total_pop:,.0f}")
+    with col2:
+        if 'Tindak Pidana 2023' in df_filtered.columns:
+            crime_data = df_filtered[df_filtered['Provinsi'] != "INDONESIA"] if 'INDONESIA' in df_filtered['Provinsi'].values else df_filtered
+            avg_crime = crime_data['Tindak Pidana 2023'].mean() if len(crime_data) > 0 else 0
+            st.metric("Avg Crime Rate", f"{avg_crime:.1f}")
+    with col3:
+        if 'gini_ratio_2023' in df_filtered.columns:
+            gini_data = df_filtered[df_filtered['Provinsi'] != "INDONESIA"] if 'INDONESIA' in df_filtered['Provinsi'].values else df_filtered
+            avg_gini = gini_data['gini_ratio_2023'].mean() if len(gini_data) > 0 else 0
+            st.metric("Avg Gini Ratio", f"{avg_gini:.3f}")
+    with col4:
+        if 'Pendidikan Terakhir SMA/PT' in df_filtered.columns:
+            edu_data = df_filtered[df_filtered['Provinsi'] != "INDONESIA"] if 'INDONESIA' in df_filtered['Provinsi'].values else df_filtered
+            avg_education = edu_data['Pendidikan Terakhir SMA/PT'].mean() if len(edu_data) > 0 else 0
+            st.metric("Avg Higher Education %", f"{avg_education:.1f}%")
+
+def render_bubble_and_relationship(df_filtered, selected_region, selected_province):
+    st.subheader("Socioeconomic Relationships")
+    col1, col2, col3 = st.columns(3)
+    numeric_cols = [col for col in df_filtered.select_dtypes(include=[np.number]).columns if col != 'Provinsi']
+    with col1:
+        x_axis = st.selectbox("X-axis:", numeric_cols, index=numeric_cols.index('Pendapatan Agustus') if 'Pendapatan Agustus' in numeric_cols else 0)
+    with col2:
+        y_axis = st.selectbox("Y-axis:", numeric_cols, index=numeric_cols.index('Pendidikan Terakhir SMA/PT') if 'Pendidikan Terakhir SMA/PT' in numeric_cols else 1)
+    with col3:
+        size_axis = st.selectbox("Bubble size:", numeric_cols, index=numeric_cols.index('Tindak Pidana 2023') if 'Tindak Pidana 2023' in numeric_cols else 2)
+    if len(numeric_cols) >= 3:
+        bubble_fig = create_bubble_chart(
+            df_filtered, x_axis, y_axis, size_axis, 
+            title=f"{y_axis} vs {x_axis} (Bubble size: {size_axis})",
+            region_filter=selected_region,
+            province_filter=selected_province
+        )
+        st.plotly_chart(bubble_fig, use_container_width=True)
+    if len(numeric_cols) >= 2:
+        st.subheader("Relationship Analysis")
+        col1, col2 = st.columns(2)
+        with col1:
+            if 'Pendidikan Terakhir SMA/PT' in df_filtered.columns and 'Tindak Pidana 2023' in df_filtered.columns:
+                color_col = 'Provinsi' if selected_province != 'All' or selected_region != 'All' else 'Region'
+                fig1 = px.scatter(
+                    df_filtered, 
+                    x='Pendidikan Terakhir SMA/PT', 
+                    y='Tindak Pidana 2023',
+                    color=color_col,
+                    hover_name='Provinsi',
+                    title="Education vs Crime Rate",
+                    trendline="ols"
+                )
+                st.plotly_chart(fig1, use_container_width=True)
+        with col2:
+            if 'gini_ratio_2023' in df_filtered.columns and 'Tindak Pidana 2023' in df_filtered.columns:
+                color_col = 'Provinsi' if selected_province != 'All' or selected_region != 'All' else 'Region'
+                fig2 = px.scatter(
+                    df_filtered, 
+                    x='gini_ratio_2023', 
+                    y='Tindak Pidana 2023',
+                    color=color_col,
+                    hover_name='Provinsi',
+                    title="Income Inequality vs Crime Rate",
+                    trendline="ols"
+                )
+                st.plotly_chart(fig2, use_container_width=True)
+
+def render_correlation_tab(df_filtered):
+    st.subheader("Correlation Analysis")
+    corr_fig = create_correlation_heatmap(df_filtered)
+    if corr_fig:
+        st.plotly_chart(corr_fig, use_container_width=True)
+
+def render_trend_tab(df_time_series, df_filtered):
+    st.subheader("Time Series Analysis")
+    trend_fig = create_trend_chart(df_time_series)
+    if trend_fig:
+        st.plotly_chart(trend_fig, use_container_width=True)
+    else:
+        st.info("Time series data not available or incomplete.")
+    if df_time_series is not None and not df_time_series.empty:
+        st.subheader("Crime Rate by Province (2021-2023)")
+        provinces_sample = df_filtered['Provinsi'].head(10).tolist()
+        if 'Tindak Pidana 2021' in df_filtered.columns:
+            crime_data = df_filtered[df_filtered['Provinsi'].isin(provinces_sample)]
+            crime_cols = ['Tindak Pidana 2021', 'Tindak Pidana 2022', 'Tindak Pidana 2023']
+            available_crime_cols = [col for col in crime_cols if col in crime_data.columns]
+            if available_crime_cols:
+                melted_data = crime_data.melt(
+                    id_vars=['Provinsi', 'Region'],
+                    value_vars=available_crime_cols,
+                    var_name='Year',
+                    value_name='Crime_Rate'
+                )
+                melted_data['Year'] = melted_data['Year'].str.extract(r'(\d{4})').astype(int)
+                fig_trend = px.line(
+                    melted_data,
+                    x='Year',
+                    y='Crime_Rate',
+                    color='Provinsi',
+                    title="Crime Rate Trends by Province (2021-2023)",
+                    markers=True
+                )
+                fig_trend.update_xaxes(dtick=1, tickformat="d")
+                fig_trend.update_yaxes(title_text="Crime Rate")
+                st.plotly_chart(fig_trend, use_container_width=True)
+
+def render_regional_tab(df_filtered, selected_region, selected_province):
+    st.subheader("Regional Analysis & Choropleth Map")
+    regional_stats = create_regional_comparison(df_filtered)
+    if regional_stats is not None:
+        st.subheader("Average Values by Region")
+        st.dataframe(regional_stats)
+        if 'Tindak Pidana 2023' in regional_stats.columns:
+            fig_regional = px.bar(
+                x=regional_stats.index,
+                y=regional_stats['Tindak Pidana 2023'],
+                title="Average Crime Rate by Region (2023)",
+                labels={'x': 'Region', 'y': 'Crime Rate'}
+            )
+            st.plotly_chart(fig_regional, use_container_width=True)
+    st.markdown("---")
+    render_choropleth_section(df_filtered, selected_region, selected_province)
+
+def render_choropleth_section(df_filtered, selected_region, selected_province):
+    st.subheader("Interactive Choropleth Map")
+    try:
+        geojson_data = load_geojson()
+        province_mapping = create_province_mapping()
+        metric_options = ['Crime Rate 2023', 'Population', 'Gini Ratio', 'Income']
+        selected_metric = st.selectbox("Select Metric to Visualize:", metric_options)
+        if selected_metric and geojson_data and province_mapping:
+            with st.spinner("Creating choropleth map..."):
+                folium_map = create_choropleth_map(
+                    df_filtered, selected_metric, geojson_data, province_mapping,
+                    region_filter=selected_region, province_filter=selected_province
+                )
+            map_data = st_folium(folium_map, width=700, height=500)
+            if selected_metric == 'Crime Rate 2023':
+                st.info("🔍 **Map Interpretation**: Darker red areas indicate higher crime rates per 100,000 population.")
+            elif selected_metric == 'Population':
+                st.info("🔍 **Map Interpretation**: Darker red areas indicate higher population density.")
+            elif selected_metric == 'Gini Ratio':
+                st.info("🔍 **Map Interpretation**: Darker red areas indicate higher income inequality (Gini ratio closer to 1).")
+            elif selected_metric == 'Income':
+                st.info("🔍 **Map Interpretation**: Darker red areas indicate higher average income levels.")
+    except Exception as e:
+        st.error(f"Error loading map data: {str(e)}")
+        st.info("Please ensure the GeoJSON file is available in the map/ directory.")
+
+def render_provincial_data_table(df_filtered):
+    st.subheader("Detailed Provincial Data")
+    df_display = df_filtered.reset_index(drop=True)
+    df_display.index = df_display.index + 1
+    st.dataframe(df_display, use_container_width=True)
+
 def main():
     st.title("🇮🇩 Indonesia Socioeconomic Dashboard")
     st.markdown("### Interactive Analysis of Provincial Data (2023)")
@@ -660,242 +826,19 @@ def main():
     st.sidebar.write(f"📊 **Provinces shown:** {num_provinces}")
     
     # Main dashboard layout
-    col1, col2, col3, col4 = st.columns(4)
-    
-    # Key metrics (adjusted for filtered data)
-    with col1:
-        if 'Jumlah Penduduk' in df_filtered.columns:
-            if selected_province != 'All' and len(df_filtered) > 0:
-                # For specific province, show that province's population
-                total_pop = df_filtered['Jumlah Penduduk'].iloc[0] if len(df_filtered) > 0 else 0
-                st.metric("Population (thousands)", f"{total_pop:,.0f}")
-            else:
-                # For all/regional data, sum up populations (excluding INDONESIA totals)
-                pop_data = df_filtered[df_filtered['Provinsi'] != "INDONESIA"] if 'INDONESIA' in df_filtered['Provinsi'].values else df_filtered
-                total_pop = pop_data['Jumlah Penduduk'].sum() if len(pop_data) > 0 else 0
-                st.metric("Total Population (thousands)", f"{total_pop:,.0f}")
-    
-    with col2:
-        if 'Tindak Pidana 2023' in df_filtered.columns:
-            crime_data = df_filtered[df_filtered['Provinsi'] != "INDONESIA"] if 'INDONESIA' in df_filtered['Provinsi'].values else df_filtered
-            avg_crime = crime_data['Tindak Pidana 2023'].mean() if len(crime_data) > 0 else 0
-            st.metric("Avg Crime Rate", f"{avg_crime:.1f}")
-    
-    with col3:
-        if 'gini_ratio_2023' in df_filtered.columns:
-            gini_data = df_filtered[df_filtered['Provinsi'] != "INDONESIA"] if 'INDONESIA' in df_filtered['Provinsi'].values else df_filtered
-            avg_gini = gini_data['gini_ratio_2023'].mean() if len(gini_data) > 0 else 0
-            st.metric("Avg Gini Ratio", f"{avg_gini:.3f}")
-    
-    with col4:
-        if 'Pendidikan Terakhir SMA/PT' in df_filtered.columns:
-            edu_data = df_filtered[df_filtered['Provinsi'] != "INDONESIA"] if 'INDONESIA' in df_filtered['Provinsi'].values else df_filtered
-            avg_education = edu_data['Pendidikan Terakhir SMA/PT'].mean() if len(edu_data) > 0 else 0
-            st.metric("Avg Higher Education %", f"{avg_education:.1f}%")
-    
+    render_key_metrics(df_filtered, selected_province)
     st.markdown("---")
-    
-    # Tabs for different analyses
     tab1, tab2, tab3, tab4 = st.tabs(["📊 Main Analysis", "🔗 Correlations", "📈 Trends", "🗺️ Regional View"])
-    
     with tab1:
-        st.subheader("Socioeconomic Relationships")
-        
-        # Bubble chart controls
-        col1, col2, col3 = st.columns(3)
-        
-        numeric_cols = [col for col in df_filtered.select_dtypes(include=[np.number]).columns 
-                       if col != 'Provinsi']
-        
-        with col1:
-            x_axis = st.selectbox("X-axis:", numeric_cols, 
-                                index=numeric_cols.index('Pendapatan Agustus') if 'Pendapatan Agustus' in numeric_cols else 0)
-        
-        with col2:
-            y_axis = st.selectbox("Y-axis:", numeric_cols, 
-                                index=numeric_cols.index('Pendidikan Terakhir SMA/PT') if 'Pendidikan Terakhir SMA/PT' in numeric_cols else 1)
-        
-        with col3:
-            size_axis = st.selectbox("Bubble size:", numeric_cols, 
-                                   index=numeric_cols.index('Tindak Pidana 2023') if 'Tindak Pidana 2023' in numeric_cols else 2)
-        
-        # Create and display bubble chart
-        if len(numeric_cols) >= 3:
-            bubble_fig = create_bubble_chart(
-                df_filtered, x_axis, y_axis, size_axis, 
-                title=f"{y_axis} vs {x_axis} (Bubble size: {size_axis})",
-                region_filter=selected_region,
-                province_filter=selected_province
-            )
-            st.plotly_chart(bubble_fig, use_container_width=True)
-        
-        # Scatter plot with regression line
-        if len(numeric_cols) >= 2:
-            st.subheader("Relationship Analysis")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                if 'Pendidikan Terakhir SMA/PT' in df_filtered.columns and 'Tindak Pidana 2023' in df_filtered.columns:
-                    if selected_province != 'All':
-                        color_col = 'Provinsi'
-                    elif selected_region != 'All':
-                        color_col = 'Provinsi'
-                    else:
-                        color_col = 'Region'
-                    fig1 = px.scatter(
-                        df_filtered, 
-                        x='Pendidikan Terakhir SMA/PT', 
-                        y='Tindak Pidana 2023',
-                        color=color_col,
-                        hover_name='Provinsi',
-                        title="Education vs Crime Rate",
-                        trendline="ols"
-                    )
-                    st.plotly_chart(fig1, use_container_width=True)
-            
-            with col2:
-                if 'gini_ratio_2023' in df_filtered.columns and 'Tindak Pidana 2023' in df_filtered.columns:
-                    if selected_province != 'All':
-                        color_col = 'Provinsi'
-                    elif selected_region != 'All':
-                        color_col = 'Provinsi'
-                    else:
-                        color_col = 'Region'
-                    fig2 = px.scatter(
-                        df_filtered, 
-                        x='gini_ratio_2023', 
-                        y='Tindak Pidana 2023',
-                        color=color_col,
-                        hover_name='Provinsi',
-                        title="Income Inequality vs Crime Rate",
-                        trendline="ols"
-                    )
-                    st.plotly_chart(fig2, use_container_width=True)
-    
+        render_bubble_and_relationship(df_filtered, selected_region, selected_province)
     with tab2:
-        st.subheader("Correlation Analysis")
-        
-        # Correlation heatmap
-        corr_fig = create_correlation_heatmap(df_filtered)
-        if corr_fig:
-            st.plotly_chart(corr_fig, use_container_width=True)
-        
-        # Correlation table
-        # numeric_cols = df_filtered.select_dtypes(include=[np.number]).columns
-        # if len(numeric_cols) > 1:
-        #     st.subheader("Correlation Coefficients")
-        #     corr_matrix = df_filtered[numeric_cols].corr()
-        #     st.dataframe(corr_matrix.style.background_gradient(cmap='RdBu'))
-    
+        render_correlation_tab(df_filtered)
     with tab3:
-        st.subheader("Time Series Analysis")
-        
-        # Crime trend chart
-        trend_fig = create_trend_chart(df_time_series)
-        if trend_fig:
-            st.plotly_chart(trend_fig, use_container_width=True)
-        else:
-            st.info("Time series data not available or incomplete.")
-        
-        # Crime data by province over time
-        if df_time_series is not None and not df_time_series.empty:
-            st.subheader("Crime Rate by Province (2021-2023)")
-            
-            # Prepare data for line chart
-            provinces_sample = df_filtered['Provinsi'].head(10).tolist()  # Show top 10 provinces
-            
-            if 'Tindak Pidana 2021' in df_filtered.columns:
-                crime_data = df_filtered[df_filtered['Provinsi'].isin(provinces_sample)]
-                
-                # Melt data for line chart
-                crime_cols = ['Tindak Pidana 2021', 'Tindak Pidana 2022', 'Tindak Pidana 2023']
-                available_crime_cols = [col for col in crime_cols if col in crime_data.columns]
-                
-                if available_crime_cols:
-                    melted_data = crime_data.melt(
-                        id_vars=['Provinsi', 'Region'],
-                        value_vars=available_crime_cols,
-                        var_name='Year',
-                        value_name='Crime_Rate'
-                    )
-                    
-                    melted_data['Year'] = melted_data['Year'].str.extract(r'(\d{4})').astype(int)
-                    
-                    fig_trend = px.line(
-                        melted_data,
-                        x='Year',
-                        y='Crime_Rate',
-                        color='Provinsi',
-                        title="Crime Rate Trends by Province (2021-2023)",
-                        markers=True
-                    )
-                    fig_trend.update_xaxes(dtick=1, tickformat="d")
-                    fig_trend.update_yaxes(title_text="Crime Rate")
-                    st.plotly_chart(fig_trend, use_container_width=True)
-    
+        render_trend_tab(df_time_series, df_filtered)
     with tab4:
-        st.subheader("Regional Analysis & Choropleth Map")
-        
-        # Regional statistics
-        regional_stats = create_regional_comparison(df_filtered)
-        if regional_stats is not None:
-            st.subheader("Average Values by Region")
-            st.dataframe(regional_stats)
-            
-            # Bar chart of regional averages
-            if 'Tindak Pidana 2023' in regional_stats.columns:
-                fig_regional = px.bar(
-                    x=regional_stats.index,
-                    y=regional_stats['Tindak Pidana 2023'],
-                    title="Average Crime Rate by Region (2023)",
-                    labels={'x': 'Region', 'y': 'Crime Rate'}
-                )
-                st.plotly_chart(fig_regional, use_container_width=True)
-        
-        st.markdown("---")
-        
-        # Choropleth map section
-        st.subheader("Interactive Choropleth Map")
-        
-        # Load geojson data
-        try:
-            geojson_data = load_geojson()
-            province_mapping = create_province_mapping()
-            
-            # Metric selection
-            metric_options = ['Crime Rate 2023', 'Population', 'Gini Ratio', 'Income']
-            selected_metric = st.selectbox("Select Metric to Visualize:", metric_options)
-            
-            # Create and display choropleth map
-            if selected_metric and geojson_data and province_mapping:
-                with st.spinner("Creating choropleth map..."):
-                    folium_map = create_choropleth_map(df_filtered, selected_metric, geojson_data, province_mapping, region_filter=selected_region, province_filter=selected_province)
-                # Display the map outside the spinner so it always renders
-                map_data = st_folium(folium_map, width=700, height=500)
-                
-                # Show interpretation
-                if selected_metric == 'Crime Rate 2023':
-                    st.info("🔍 **Map Interpretation**: Darker red areas indicate higher crime rates per 100,000 population.")
-                elif selected_metric == 'Population':
-                    st.info("🔍 **Map Interpretation**: Darker red areas indicate higher population density.")
-                elif selected_metric == 'Gini Ratio':
-                    st.info("🔍 **Map Interpretation**: Darker red areas indicate higher income inequality (Gini ratio closer to 1).")
-                elif selected_metric == 'Income':
-                    st.info("🔍 **Map Interpretation**: Darker red areas indicate higher average income levels.")
-            
-        except Exception as e:
-            st.error(f"Error loading map data: {str(e)}")
-            st.info("Please ensure the GeoJSON file is available in the map/ directory.")
-        
-        st.markdown("---")
-        
-        # Data table
-        st.subheader("Detailed Provincial Data")
-        # Reset index to start from 1 for display
-        df_display = df_filtered.reset_index(drop=True)
-        df_display.index = df_display.index + 1
-        st.dataframe(df_display, use_container_width=True)
+        render_regional_tab(df_filtered, selected_region, selected_province)
+    st.markdown("---")
+    render_provincial_data_table(df_filtered)
 
 if __name__ == "__main__":
     main()
