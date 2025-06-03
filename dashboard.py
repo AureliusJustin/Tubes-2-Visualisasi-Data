@@ -1616,12 +1616,37 @@ def render_provincial_metrics(df_filtered, selected_province, selected_region, d
                         regional_rank = region_sorted[region_sorted['Provinsi'] == selected_province].index[0] + 1 if selected_province in region_sorted['Provinsi'].values else None
                         total_in_region = len(region_sorted)
                         
+                        # Calculate 2022 regional ranking for delta
+                        regional_rank_2022 = None
+                        if 'Tindak Pidana 2022' in region_provinces.columns:
+                            region_sorted_2022 = region_provinces.dropna(subset=['Tindak Pidana 2022']).sort_values('Tindak Pidana 2022', ascending=True).reset_index(drop=True)
+                            regional_rank_2022 = region_sorted_2022[region_sorted_2022['Provinsi'] == selected_province].index[0] + 1 if selected_province in region_sorted_2022['Provinsi'].values else None
+                        
                         if regional_rank:
-                            st.metric(
-                                f"Peringkat di {province_data['Region']}",
-                                f"#{regional_rank} / {total_in_region}",
-                                help="Peringkat wilayah berdasarkan tingkat kriminalitas (Peringkat rendah lebih baik)"
-                            )
+                            if regional_rank_2022 is not None:
+                                rank_change = regional_rank - regional_rank_2022  # Positive = worse (rank increased), Negative = better (rank decreased)
+                                if rank_change != 0:
+                                    st.metric(
+                                        f"Peringkat di {province_data['Region']}",
+                                        f"#{regional_rank} / {total_in_region}",
+                                        delta=f"{rank_change:+d} dari 2022",
+                                        delta_color="inverse",  # inverse because lower rank is better
+                                        help="Peringkat wilayah berdasarkan tingkat kriminalitas (Peringkat rendah lebih baik)"
+                                    )
+                                else:
+                                    st.metric(
+                                        f"Peringkat di {province_data['Region']}",
+                                        f"#{regional_rank} / {total_in_region}",
+                                        delta="Sama dengan 2022",
+                                        delta_color="off",
+                                        help="Peringkat wilayah berdasarkan tingkat kriminalitas (Peringkat rendah lebih baik)"
+                                    )
+                            else:
+                                st.metric(
+                                    f"Peringkat di {province_data['Region']}",
+                                    f"#{regional_rank} / {total_in_region}",
+                                    help="Peringkat wilayah berdasarkan tingkat kriminalitas (Peringkat rendah lebih baik)"
+                                )
             
             # National ranking (rank among all provinces)
             with col3:
@@ -1630,12 +1655,37 @@ def render_provincial_metrics(df_filtered, selected_province, selected_region, d
                     national_rank = national_sorted[national_sorted['Provinsi'] == selected_province].index[0] + 1 if selected_province in national_sorted['Provinsi'].values else None
                     total_provinces = len(national_sorted)
                     
+                    # Calculate 2022 national ranking for delta
+                    national_rank_2022 = None
+                    if 'Tindak Pidana 2022' in df_main.columns:
+                        national_sorted_2022 = df_main.dropna(subset=['Tindak Pidana 2022']).sort_values('Tindak Pidana 2022', ascending=True).reset_index(drop=True)
+                        national_rank_2022 = national_sorted_2022[national_sorted_2022['Provinsi'] == selected_province].index[0] + 1 if selected_province in national_sorted_2022['Provinsi'].values else None
+                    
                     if national_rank:
-                        st.metric(
-                            "Peringkat Nasional",
-                            f"#{national_rank} / {total_provinces}",
-                            help="Peringkat nasional berdasarkan tingkat kriminalitas (Peringkat rendah lebih baik)"
-                        )
+                        if national_rank_2022 is not None:
+                            rank_change = national_rank - national_rank_2022  # Positive = worse (rank increased), Negative = better (rank decreased)
+                            if rank_change != 0:
+                                st.metric(
+                                    "Peringkat Nasional",
+                                    f"#{national_rank} / {total_provinces}",
+                                    delta=f"{rank_change:+d} dari 2022",
+                                    delta_color="inverse",  # inverse because lower rank is better
+                                    help="Peringkat nasional berdasarkan tingkat kriminalitas (Peringkat rendah lebih baik)"
+                                )
+                            else:
+                                st.metric(
+                                    "Peringkat Nasional",
+                                    f"#{national_rank} / {total_provinces}",
+                                    delta="Sama dengan 2022",
+                                    delta_color="off",
+                                    help="Peringkat nasional berdasarkan tingkat kriminalitas (Peringkat rendah lebih baik)"
+                                )
+                        else:
+                            st.metric(
+                                "Peringkat Nasional",
+                                f"#{national_rank} / {total_provinces}",
+                                help="Peringkat nasional berdasarkan tingkat kriminalitas (Peringkat rendah lebih baik)"
+                            )
                     
     elif selected_region != 'All':
         # Regional view - show regional average
@@ -1681,12 +1731,37 @@ def render_provincial_metrics(df_filtered, selected_province, selected_region, d
                 regional_rank = list(region_averages.index).index(selected_region) + 1 if selected_region in region_averages.index else None
                 total_regions = len(region_averages)
                 
+                # Calculate 2022 regional ranking for delta
+                regional_rank_2022 = None
+                if 'Tindak Pidana 2022' in df_main.columns:
+                    region_averages_2022 = df_main.groupby('Region')['Tindak Pidana 2022'].mean().dropna().sort_values(ascending=True)
+                    regional_rank_2022 = list(region_averages_2022.index).index(selected_region) + 1 if selected_region in region_averages_2022.index else None
+                
                 if regional_rank:
-                    st.metric(
-                        "Peringkat Wilayah",
-                        f"#{regional_rank} / {total_regions}",
-                        help="Peringkat wilayah berdasarkan rata-rata tingkat kriminalitas (Peringkat rendah lebih baik)"
-                    )
+                    if regional_rank_2022 is not None:
+                        rank_change = regional_rank - regional_rank_2022  # Positive = worse (rank increased), Negative = better (rank decreased)
+                        if rank_change != 0:
+                            st.metric(
+                                "Peringkat Wilayah",
+                                f"#{regional_rank} / {total_regions}",
+                                delta=f"{rank_change:+d} dari 2022",
+                                delta_color="inverse",  # inverse because lower rank is better
+                                help="Peringkat wilayah berdasarkan rata-rata tingkat kriminalitas (Peringkat rendah lebih baik)"
+                            )
+                        else:
+                            st.metric(
+                                "Peringkat Wilayah",
+                                f"#{regional_rank} / {total_regions}",
+                                delta="Sama dengan 2022",
+                                delta_color="off",
+                                help="Peringkat wilayah berdasarkan rata-rata tingkat kriminalitas (Peringkat rendah lebih baik)"
+                            )
+                    else:
+                        st.metric(
+                            "Peringkat Wilayah",
+                            f"#{regional_rank} / {total_regions}",
+                            help="Peringkat wilayah berdasarkan rata-rata tingkat kriminalitas (Peringkat rendah lebih baik)"
+                        )
             
             # Number of provinces in region
             with col3:
