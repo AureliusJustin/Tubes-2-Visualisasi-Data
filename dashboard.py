@@ -611,8 +611,8 @@ def create_choropleth_map(df, metric, geojson_data, province_mapping, region_fil
         tiles=None,
         min_zoom=4,
         max_zoom=8,
-        zoom_control=True,
-        scrollWheelZoom=True,
+        zoom_control=False,
+        scrollWheelZoom=False,
         doubleClickZoom=True,
         prefer_canvas=True,
         attributionControl=True
@@ -938,17 +938,53 @@ def create_choropleth_map(df, metric, geojson_data, province_mapping, region_fil
     if len(map_data) > 0:
         # Always exclude 'INDONESIA' (national aggregate) from all province-based calculations and coloring
         map_data = map_data[map_data['Provinsi'] != 'INDONESIA'] if 'INDONESIA' in map_data['Provinsi'].values else map_data
-        if metric == 'Population':
-            min_val = map_data[metric_col].min()
-            max_val = map_data[metric_col].max()
+        
+        min_val = map_data[metric_col].min()
+        max_val = map_data[metric_col].max()
+        
+        # Choose appropriate color scheme based on metric
+        if metric == 'Crime Rate 2023':
+            # Red scale for crime (bad = high values = red)
+            colormap = cm.LinearColormap(
+                colors=['#ffffcc', '#ff4444'],
+                vmin=min_val,
+                vmax=max_val
+            )
+        elif metric == 'Gini Ratio':
+            # Red scale for inequality (bad = high values = red)
+            colormap = cm.LinearColormap(
+                colors=['#ffffcc', '#ff4444'],
+                vmin=min_val,
+                vmax=max_val
+            )
+        elif metric == 'Education':
+            # Green scale for education (good = high values = green)
+            colormap = cm.LinearColormap(
+                colors=['#ffcccc', '#44ff44'],
+                vmin=min_val,
+                vmax=max_val
+            )
+        elif metric == 'Income':
+            # Blue scale for income (neutral metric)
+            colormap = cm.LinearColormap(
+                colors=['#ccccff', '#4444ff'],
+                vmin=min_val,
+                vmax=max_val
+            )
+        elif metric == 'Population':
+            # Purple scale for population (neutral metric)
+            colormap = cm.LinearColormap(
+                colors=['#e6ccff', '#8844ff'],
+                vmin=min_val,
+                vmax=max_val
+            )
         else:
-            min_val = map_data[metric_col].min()
-            max_val = map_data[metric_col].max()
-        colormap = cm.LinearColormap(
-            colors=['#ffffcc', '#ff4444'],
-            vmin=min_val,
-            vmax=max_val
-        )
+            # Default to yellow-red scale
+            colormap = cm.LinearColormap(
+                colors=['#ffffcc', '#ff4444'],
+                vmin=min_val,
+                vmax=max_val
+            )
         colormap.caption = title  # Add a caption to the legend
         # Add the colormap legend to the map
         colormap.add_to(m)
@@ -964,12 +1000,23 @@ def create_choropleth_map(df, metric, geojson_data, province_mapping, region_fil
         def highlight_feature(feature):
             prov_name = feature['properties']['Propinsi']
             region_name = region_data.get(prov_name)
+            
+            # Get the appropriate maximum color based on metric
+            if metric == 'Education':
+                max_color = '#44ff44'  # Green for education
+            elif metric == 'Income':
+                max_color = '#4444ff'  # Blue for income
+            elif metric == 'Population':
+                max_color = '#8844ff'  # Purple for population
+            else:  # Crime Rate, Gini Ratio, and default
+                max_color = '#ff4444'  # Red for crime/inequality
+            
             # Province filter takes precedence
             if province_filter and province_filter != 'All':
                 if prov_name == reverse_mapping.get(province_filter):
-                    # Use the colormap's last color directly (force red)
+                    # Use the colormap's maximum color for the selected province
                     return {
-                        'fillColor': '#ff4444',  # hardcode to the highest color in the colormap
+                        'fillColor': max_color,
                         'color': 'black',
                         'weight': 3,
                         'fillOpacity': 1.0,
@@ -1054,6 +1101,30 @@ def create_choropleth_map(df, metric, geojson_data, province_mapping, region_fil
                 style=("background-color: white; color: #333; font-weight: bold; border-radius: 4px; padding: 4px;")
             )
         ).add_to(m)
+    
+    # Add CSS to make iframe body transparent (targeting from inside the iframe)
+    iframe_transparency_css = """
+    <style>
+    /* Target the body element that contains the folium map root */
+    body {
+        background-color: transparent !important;
+        background: transparent !important;
+    }
+    
+    /* Ensure the html element is also transparent */
+    html {
+        background-color: transparent !important;
+        background: transparent !important;
+    }
+    
+    /* Make sure the folium map container itself maintains the dark theme */
+    .folium-map {
+        background-color: #25262d !important;
+    }
+    </style>
+    """
+    m.get_root().html.add_child(folium.Element(iframe_transparency_css))
+    
     return m
 
 # --- Visualization Components Modularization ---
@@ -1351,7 +1422,7 @@ def create_top_provinces_chart(df_filtered):
         plot_bgcolor='#25262d',
         paper_bgcolor='#25262d',
         font_color='white',
-        margin=dict(l=20, r=20, t=40, b=20),
+        margin=dict(l=0, r=20, t=40, b=20),
         height=400,
         yaxis={'categoryorder': 'total ascending', 'title': ''},
         showlegend=False
@@ -1360,7 +1431,7 @@ def create_top_provinces_chart(df_filtered):
     return fig
 
 def create_scatter_plot(df_filtered, x_col, y_col, title):
-    """Create scatter plot with trendline"""
+    """Create scatter plot without trendline"""
     if x_col not in df_filtered.columns or y_col not in df_filtered.columns:
         return None
     
@@ -1370,7 +1441,6 @@ def create_scatter_plot(df_filtered, x_col, y_col, title):
         y=y_col,
         hover_name='Provinsi',
         title=title,
-        trendline="ols",
         color='Region' if 'Region' in df_filtered.columns else None
     )
     
@@ -1385,7 +1455,7 @@ def create_scatter_plot(df_filtered, x_col, y_col, title):
     return fig
 
 def main():
-    # st.title("🇮🇩 Indonesia Criminality Dashboard")
+    st.title("🇮🇩 Indonesia Criminality Dashboard")
     # st.markdown("### Interactive Analysis of Provincial Crime Data")
     
     # Load data
@@ -1442,7 +1512,7 @@ def main():
     st.sidebar.write(f"📊 **Provinces shown:** {num_provinces}")
     
     # Main layout - First row
-    st.markdown("## 📊 National Overview")
+    st.markdown("## National Overview")
     
     # First row: Key metrics and main analysis
     metrics_col, main_col = st.columns([1, 3])
@@ -1459,14 +1529,14 @@ def main():
         with trend_col:
             trend_fig = create_crime_trend_2012_2023(df_time_series)
             if trend_fig:
-                st.plotly_chart(trend_fig, use_container_width=True)
+                st.plotly_chart(trend_fig, use_container_width=True, config={'displayModeBar': False})
             else:
                 st.info("Time series data not available")
         
         with top_col:
             top_fig = create_top_provinces_chart(df_filtered)
             if top_fig:
-                st.plotly_chart(top_fig, use_container_width=True)
+                st.plotly_chart(top_fig, use_container_width=True, config={'displayModeBar': False})
             else:
                 st.info("Crime data not available")
         
@@ -1481,7 +1551,7 @@ def main():
                     region_filter=selected_region, province_filter=selected_province
                 )
             st_folium(folium_map, width="100%", height=350, returned_objects=[], key="crime_map")
-            st.info("🔍 **Map Interpretation**: Darker red areas indicate higher crime rates per 100,000 population.")
+            # st.info("🔍 **Map Interpretation**: Darker red areas indicate higher crime rates per 100,000 population.")
         else:
             st.warning("GeoJSON or province mapping not loaded.")
     
@@ -1513,7 +1583,7 @@ def main():
                 "Income Inequality vs Crime Rate"
             )
             if gini_scatter:
-                st.plotly_chart(gini_scatter, use_container_width=True)
+                st.plotly_chart(gini_scatter, use_container_width=True, config={'displayModeBar': False})
     
     with education_col:
         st.subheader("Education Analysis")
@@ -1536,7 +1606,7 @@ def main():
                 "Education Level vs Crime Rate"
             )
             if edu_scatter:
-                st.plotly_chart(edu_scatter, use_container_width=True)
+                st.plotly_chart(edu_scatter, use_container_width=True, config={'displayModeBar': False})
     
     # Data table at the bottom
     st.markdown("---")
