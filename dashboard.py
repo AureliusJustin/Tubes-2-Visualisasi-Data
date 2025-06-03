@@ -572,15 +572,15 @@ def create_choropleth_map(df, metric, geojson_data, province_mapping, region_fil
     if metric == 'Crime Rate 2023':
         map_data = df[['Provinsi', 'Tindak Pidana 2023', 'Region']].dropna(subset=['Provinsi'])
         metric_col = 'Tindak Pidana 2023'
-        title = 'Crime Rate per 100,000 Population (2023)'
+        title = 'Tindak Pidana per 100,000 Penduduk (2023)'
     elif metric == 'Population':
         map_data = df[['Provinsi', 'Jumlah Penduduk', 'Region']].dropna(subset=['Provinsi'])
         metric_col = 'Jumlah Penduduk'
-        title = 'Population by Province (thousands)'
+        title = 'Populasi berdasarkan Provinsi (ribu jiwa, 2023)'
     elif metric == 'Gini Ratio':
         map_data = df[['Provinsi', 'gini_ratio_2023', 'Region']].dropna(subset=['Provinsi'])
         metric_col = 'gini_ratio_2023'
-        title = 'Gini Ratio by Province (2023)'
+        title = 'Gini Ratio berdasarkan Provinsi (2023)'
     elif metric == 'Income':
         map_data = df[['Provinsi', 'Pendapatan Agustus', 'Region']].dropna(subset=['Provinsi'])
         metric_col = 'Pendapatan Agustus'
@@ -588,11 +588,11 @@ def create_choropleth_map(df, metric, geojson_data, province_mapping, region_fil
     elif metric == 'Education':
         map_data = df[['Provinsi', 'Pendidikan Terakhir SMA/PT', 'Region']].dropna(subset=['Provinsi'])
         metric_col = 'Pendidikan Terakhir SMA/PT'
-        title = 'Higher Education Completion Rate by Province (2023)'
+        title = 'Tingkat Penyelesaian Pendidikan SMA berdasarkan Provinsi (2023)'
     else:
         map_data = df[['Provinsi', 'Tindak Pidana 2023', 'Region']].dropna(subset=['Provinsi'])
         metric_col = 'Tindak Pidana 2023'
-        title = 'Crime Rate per 100,000 Population (2023)'
+        title = 'Tindak Pidana per 100,000 Penduduk (2023)'
 
     reverse_mapping = {v: k for k, v in province_mapping.items()}
 
@@ -676,7 +676,7 @@ def create_choropleth_map(df, metric, geojson_data, province_mapping, region_fil
         tiles=None,
         min_zoom=4,
         max_zoom=10,
-        zoom_control=True,
+        zoom_control=False,
         scrollWheelZoom=True,
         doubleClickZoom=True,
         prefer_canvas=True,
@@ -1202,19 +1202,6 @@ def create_choropleth_map(df, metric, geojson_data, province_mapping, region_fil
 # --- Visualization Components Modularization ---
 
 def render_key_metrics(df_filtered, selected_province, oc_data=None, selected_region=None, df_main=None):
-    # Add CSS to make the metrics column fill available height
-    st.markdown("""
-    <style>
-    .metrics-container {
-        height: 100vh;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-around;
-        padding: 1rem 0;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
     # Check if province or region filter is active
     is_filtered = selected_province != 'Semua' or selected_region != 'Semua'
     
@@ -1222,6 +1209,9 @@ def render_key_metrics(df_filtered, selected_province, oc_data=None, selected_re
         # Show provincial/regional data instead of OC Index
         render_provincial_metrics(df_filtered, selected_province, selected_region, df_main)
     elif oc_data and oc_data['indonesia_2023'] is not None:
+        # Create columns for horizontal layout of metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
         indonesia_2023 = oc_data['indonesia_2023']
         indonesia_2021 = oc_data['indonesia_2021']
         
@@ -1229,119 +1219,123 @@ def render_key_metrics(df_filtered, selected_province, oc_data=None, selected_re
         crime_rate_2023 = indonesia_2023['Criminality']
         crime_rate_2021 = indonesia_2021['Criminality'] if indonesia_2021 is not None else None
         
-        if crime_rate_2021 is not None:
-            crime_rate_change = crime_rate_2023 - crime_rate_2021  # Positive = worse (crime increased), Negative = better (crime decreased)
-            if abs(crime_rate_change) >= 0.01:  # Only show change if significant (>= 0.01)
-                st.metric(
-                    "Tingkat Kriminalitas (OC Index)", 
-                    f"{crime_rate_2023:.2f}",
-                    delta=f"{crime_rate_change:+.2f} dari 2021",
-                    delta_color="inverse",  # inverse because higher crime rate is worse
-                    help="Skor Indeks Kejahatan Terorganisir (0-10, semakin tinggi = semakin buruk)"
-                )
+        with col1:
+            if crime_rate_2021 is not None:
+                crime_rate_change = crime_rate_2023 - crime_rate_2021  # Positive = worse (crime increased), Negative = better (crime decreased)
+                if abs(crime_rate_change) >= 0.01: # Only show change if significant (>= 0.01)
+                    st.metric(
+                        "Tingkat Kriminalitas (OC Index)", 
+                        f"{crime_rate_2023:.2f}",
+                        delta=f"{crime_rate_change:+.2f} dari 2021",
+                        delta_color="inverse",  # inverse because higher crime rate is worse
+                        help="Skor Indeks Kejahatan Terorganisir (0-10, Semakin tinggi semakin buruk)"
+                    )
+                else:
+                    st.metric(
+                        "Tingkat Kriminalitas (OC Index)", 
+                        f"{crime_rate_2023:.2f}",
+                        delta="Sama dengan 2021",
+                        delta_color="off",
+                        help="Skor Indeks Kejahatan Terorganisir (0-10, Semakin tinggi semakin buruk)"
+                    )
             else:
                 st.metric(
                     "Tingkat Kriminalitas (OC Index)", 
                     f"{crime_rate_2023:.2f}",
-                    delta="Sama dengan 2021",
-                    delta_color="off",
-                    help="Skor Indeks Kejahatan Terorganisir (0-10, semakin tinggi = semakin buruk)"
+                    help="Skor Indeks Kejahatan Terorganisir (0-10, Semakin tinggi semakin buruk)"
                 )
-        else:
-            st.metric(
-                "Tingkat Kriminalitas (OC Index)", 
-                f"{crime_rate_2023:.2f}",
-                help="Skor Indeks Kejahatan Terorganisir (0-10, semakin tinggi = semakin buruk)"
-            )
         
         # World Rank
         world_rank_2023 = int(indonesia_2023['World_Rank'])
         world_rank_2021 = int(indonesia_2021['World_Rank']) if indonesia_2021 is not None else None
         
-        if world_rank_2021 is not None:
-            rank_change = -(world_rank_2023 - world_rank_2021)  # Positive = worse (rank increased), Negative = better (rank decreased)
-            if rank_change != 0:
-                st.metric(
-                    "Peringkat Dunia", 
-                    f"#{world_rank_2023}",
-                    delta=f"{rank_change:+d} dari 2021",
-                    delta_color="inverse",  # inverse because lower rank is better
-                    help="Peringkat global di antara semua negara (Peringkat Rendah = Lebih Baik)"
-                )
+        with col2:
+            if world_rank_2021 is not None:
+                rank_change = -(world_rank_2023 - world_rank_2021)  # Positive = worse (rank increased), Negative = better (rank decreased)
+                if rank_change != 0:
+                    st.metric(
+                        "Peringkat Dunia", 
+                        f"#{world_rank_2023} / 193",
+                        delta=f"{rank_change:+d} dari 2021",
+                        delta_color="inverse",  # inverse because lower rank is better
+                        help="Peringkat global di antara semua negara (Peringkat rendah lebih baik)"
+                    )
+                else:
+                    st.metric(
+                        "Peringkat Dunia", 
+                        f"#{world_rank_2023} / 193",
+                        delta="Sama dengan 2021",
+                        delta_color="off",
+                        help="Peringkat global di antara semua negara (Peringkat rendah lebih baik)"
+                    )
             else:
                 st.metric(
                     "Peringkat Dunia", 
-                    f"#{world_rank_2023}",
-                    delta="Sama dengan 2021",
-                    delta_color="off",
-                    help="Peringkat global di antara semua negara (Peringkat Rendah = Lebih Baik)"
+                    f"#{world_rank_2023} / 193",
+                    help="Peringkat global di antara semua negara (Peringkat rendah lebih baik)"
                 )
-        else:
-            st.metric(
-                "Peringkat Dunia", 
-                f"#{world_rank_2023}",
-                help="Peringkat global di antara semua negara (Peringkat Rendah = Lebih Baik)"
-            )
         
         # Asia Rank
         asia_rank_2023 = int(indonesia_2023['Asia_Rank']) if pd.notna(indonesia_2023['Asia_Rank']) else None
         asia_rank_2021 = int(indonesia_2021['Asia_Rank']) if indonesia_2021 is not None and pd.notna(indonesia_2021['Asia_Rank']) else None
         
-        if asia_rank_2023 is not None:
-            if asia_rank_2021 is not None:
-                asia_change = asia_rank_2023 - asia_rank_2021  # Positive = worse (rank increased), Negative = better (rank decreased)
-                if asia_change != 0:
-                    st.metric(
-                        "Peringkat Asia", 
-                        f"#{asia_rank_2023}",
-                        delta=f"{asia_change:+d} dari 2021",
-                        delta_color="inverse",  # inverse because lower rank is better
-                        help="Peringkat di antara negara-negara Asia (Peringkat Rendah = Lebih Baik)"
-                    )
+        with col3:
+            if asia_rank_2023 is not None:
+                if asia_rank_2021 is not None:
+                    asia_change = asia_rank_2023 - asia_rank_2021  # Positive = worse (rank increased), Negative = better (rank decreased)
+                    if asia_change != 0:
+                        st.metric(
+                            "Peringkat Asia", 
+                            f"#{asia_rank_2023} / 46",
+                            delta=f"{asia_change:+d} dari 2021",
+                            delta_color="inverse",  # inverse because lower rank is better
+                            help="Peringkat di antara negara-negara Asia (Peringkat rendah lebih baik)"
+                        )
+                    else:
+                        st.metric(
+                            "Peringkat Asia", 
+                            f"#{asia_rank_2023} / 46",
+                            delta="Sama dengan 2021",
+                            delta_color="off",
+                            help="Peringkat di antara negara-negara Asia (Peringkat rendah lebih baik)"
+                        )
                 else:
                     st.metric(
                         "Peringkat Asia", 
-                        f"#{asia_rank_2023}",
-                        delta="Sama dengan 2021",
-                        delta_color="off",
-                        help="Peringkat di antara negara-negara Asia (Peringkat Rendah = Lebih Baik)"
+                        f"#{asia_rank_2023} / 46",
+                        help="Peringkat di antara negara-negara Asia (Peringkat rendah lebih baik)"
                     )
-            else:
-                st.metric(
-                    "Peringkat Asia", 
-                    f"#{asia_rank_2023}",
-                    help="Peringkat di antara negara-negara Asia (Peringkat Rendah = Lebih Baik)"
-                )
         
         # ASEAN Rank
         asean_rank_2023 = int(indonesia_2023['ASEAN_Rank']) if pd.notna(indonesia_2023['ASEAN_Rank']) else None
         asean_rank_2021 = int(indonesia_2021['ASEAN_Rank']) if indonesia_2021 is not None and pd.notna(indonesia_2021['ASEAN_Rank']) else None
         
-        if asean_rank_2023 is not None:
-            if asean_rank_2021 is not None:
-                asean_change = asean_rank_2023 - asean_rank_2021  # Positive = worse (rank increased), Negative = better (rank decreased)
-                if asean_change != 0:
-                    st.metric(
-                        "Peringkat ASEAN", 
-                        f"#{asean_rank_2023}",
-                        delta=f"{asean_change:+d} dari 2021",
-                        delta_color="inverse",  # inverse because lower rank is better
-                        help="Peringkat di antara negara-negara ASEAN (Peringkat Rendah = Lebih Baik)"
-                    )
+        with col4:
+            if asean_rank_2023 is not None:
+                if asean_rank_2021 is not None:
+                    asean_change = asean_rank_2023 - asean_rank_2021  # Positive = worse (rank increased), Negative = better (rank decreased)
+                    if asean_change != 0:
+                        st.metric(
+                            "Peringkat ASEAN", 
+                            f"#{asean_rank_2023} / 10",
+                            delta=f"{asean_change:+d} dari 2021",
+                            delta_color="inverse",  # inverse because lower rank is better
+                            help="Peringkat di antara negara-negara ASEAN (Peringkat rendah lebih baik)"
+                        )
+                    else:
+                        st.metric(
+                            "Peringkat ASEAN", 
+                            f"#{asean_rank_2023} / 10",
+                            delta="Sama dengan 2021",
+                            delta_color="off",
+                            help="Peringkat di antara negara-negara ASEAN (Peringkat rendah lebih baik)"
+                        )
                 else:
                     st.metric(
                         "Peringkat ASEAN", 
-                        f"#{asean_rank_2023}",
-                        delta="Sama dengan 2021",
-                        delta_color="off",
-                        help="Peringkat di antara negara-negara ASEAN (Peringkat Rendah = Lebih Baik)"
+                        f"#{asean_rank_2023} / 10",
+                        help="Peringkat di antara negara-negara ASEAN (Peringkat rendah lebih baik)"
                     )
-            else:
-                st.metric(
-                    "Peringkat ASEAN", 
-                    f"#{asean_rank_2023}",
-                    help="Peringkat di antara negara-negara ASEAN (Peringkat Rendah = Lebih Baik)"
-                )
     else:
         st.warning("Data Indeks OC tidak tersedia")
 
@@ -1503,7 +1497,7 @@ def create_crime_trend_2012_2023(df_time_series, selected_province='All', select
         fig.update_layout(
             title=title,
             xaxis_title="Tahun",
-            yaxis_title="Tingkat Kriminalitas (per 100.000)",
+            yaxis_title="Tingkat Kriminalitas (per 100.000 Penduduk)",
             plot_bgcolor='#25262d',
             paper_bgcolor='#25262d',
             font_color='white',
@@ -1528,7 +1522,7 @@ def create_top_provinces_chart(df_filtered):
         x='Tindak Pidana 2023',
         y='Provinsi',
         orientation='h',
-        title="10 Provinsi Teratas berdasarkan Tingkat Kriminalitas 2023",
+        title="Provinsi dengan Tingkat Kriminalitas Tertinggi",
         color='Tindak Pidana 2023',
         color_continuous_scale='Reds',
     )
@@ -1580,116 +1574,128 @@ def render_provincial_metrics(df_filtered, selected_province, selected_region, d
         province_data = df_filtered[df_filtered['Provinsi'] == selected_province].iloc[0] if not df_filtered.empty else None
         
         if province_data is not None and 'Tindak Pidana 2023' in province_data and 'Tindak Pidana 2022' in province_data:
+            # Create columns for horizontal layout of metrics
+            col1, col2, col3 = st.columns(3)
+            
             # Crime Rate 2023 vs 2022
             crime_2023 = province_data['Tindak Pidana 2023']
             crime_2022 = province_data['Tindak Pidana 2022']
             
-            if pd.notna(crime_2023) and pd.notna(crime_2022):
-                crime_change = crime_2023 - crime_2022
-                if abs(crime_change) >= 0.1:  # Show change if significant
-                    st.metric(
-                        "Tingkat Kriminalitas 2023",
-                        f"{crime_2023:.1f}",
-                        delta=f"{crime_change:+.1f} dari 2022",
-                        delta_color="inverse",  # inverse because higher crime is worse
-                        help="Insiden kejahatan per 100.000 penduduk"
-                    )
+            with col1:
+                if pd.notna(crime_2023) and pd.notna(crime_2022):
+                    crime_change = crime_2023 - crime_2022
+                    if abs(crime_change) >= 0.1:  # Show change if significant
+                        st.metric(
+                            "Tingkat Kriminalitas 2023",
+                            f"{crime_2023:.1f}",
+                            delta=f"{crime_change:+.1f} dari 2022",
+                            delta_color="inverse",  # inverse because higher crime is worse
+                            help="Insiden kejahatan per 100.000 penduduk"
+                        )
+                    else:
+                        st.metric(
+                            "Tingkat Kriminalitas 2023",
+                            f"{crime_2023:.1f}",
+                            delta="Mirip dengan 2022",
+                            delta_color="off",
+                            help="Insiden kejahatan per 100.000 penduduk"
+                        )
                 else:
                     st.metric(
                         "Tingkat Kriminalitas 2023",
-                        f"{crime_2023:.1f}",
-                        delta="Mirip dengan 2022",
-                        delta_color="off",
+                        f"{crime_2023:.1f}" if pd.notna(crime_2023) else "N/A",
                         help="Insiden kejahatan per 100.000 penduduk"
                     )
-            else:
-                st.metric(
-                    "Tingkat Kriminalitas 2023",
-                    f"{crime_2023:.1f}" if pd.notna(crime_2023) else "N/A",
-                    help="Insiden kejahatan per 100.000 penduduk"
-                )
             
             # Regional ranking (rank within region)
-            if 'Region' in province_data and pd.notna(province_data['Region']):
-                region_provinces = df_main[df_main['Region'] == province_data['Region']]
-                if 'Tindak Pidana 2023' in region_provinces.columns:
-                    region_sorted = region_provinces.dropna(subset=['Tindak Pidana 2023']).sort_values('Tindak Pidana 2023', ascending=True)
-                    regional_rank = (region_sorted['Provinsi'] == selected_province).idxmax() + 1 if selected_province in region_sorted['Provinsi'].values else None
-                    total_in_region = len(region_sorted)
-                    
-                    if regional_rank:
-                        st.metric(
-                            f"Rank in {province_data['Region']}",
-                            f"#{regional_rank} of {total_in_region}",
-                            help="Peringkat wilayah berdasarkan tingkat kriminalitas (1 = tingkat kriminalitas terendah di wilayah)"
-                        )
+            with col2:
+                if 'Region' in province_data and pd.notna(province_data['Region']):
+                    region_provinces = df_main[df_main['Region'] == province_data['Region']]
+                    if 'Tindak Pidana 2023' in region_provinces.columns:
+                        region_sorted = region_provinces.dropna(subset=['Tindak Pidana 2023']).sort_values('Tindak Pidana 2023', ascending=True).reset_index(drop=True)
+                        regional_rank = region_sorted[region_sorted['Provinsi'] == selected_province].index[0] + 1 if selected_province in region_sorted['Provinsi'].values else None
+                        total_in_region = len(region_sorted)
+                        
+                        if regional_rank:
+                            st.metric(
+                                f"Peringkat di {province_data['Region']}",
+                                f"#{regional_rank} / {total_in_region}",
+                                help="Peringkat wilayah berdasarkan tingkat kriminalitas (Peringkat rendah lebih baik)"
+                            )
             
             # National ranking (rank among all provinces)
-            if 'Tindak Pidana 2023' in df_main.columns:
-                national_sorted = df_main.dropna(subset=['Tindak Pidana 2023']).sort_values('Tindak Pidana 2023', ascending=True)
-                national_rank = (national_sorted['Provinsi'] == selected_province).idxmax() + 1 if selected_province in national_sorted['Provinsi'].values else None
-                total_provinces = len(national_sorted)
-                
-                if national_rank:
-                    st.metric(
-                        "National Rank",
-                        f"#{national_rank} of {total_provinces}",
-                        help="Peringkat nasional berdasarkan tingkat kriminalitas (1 = tingkat kriminalitas terendah di Indonesia)"
-                    )
+            with col3:
+                if 'Tindak Pidana 2023' in df_main.columns:
+                    national_sorted = df_main.dropna(subset=['Tindak Pidana 2023']).sort_values('Tindak Pidana 2023', ascending=True).reset_index(drop=True)
+                    national_rank = national_sorted[national_sorted['Provinsi'] == selected_province].index[0] + 1 if selected_province in national_sorted['Provinsi'].values else None
+                    total_provinces = len(national_sorted)
+                    
+                    if national_rank:
+                        st.metric(
+                            "Peringkat Nasional",
+                            f"#{national_rank} / {total_provinces}",
+                            help="Peringkat nasional berdasarkan tingkat kriminalitas (Peringkat rendah lebih baik)"
+                        )
                     
     elif selected_region != 'All':
         # Regional view - show regional average
         regional_data = df_filtered
         
         if not regional_data.empty and 'Tindak Pidana 2023' in regional_data.columns:
+            # Create columns for horizontal layout of regional metrics
+            col1, col2, col3 = st.columns(3)
+            
             # Regional average crime rate
             avg_crime_2023 = regional_data['Tindak Pidana 2023'].mean()
             avg_crime_2022 = regional_data['Tindak Pidana 2022'].mean() if 'Tindak Pidana 2022' in regional_data.columns else None
             
-            if pd.notna(avg_crime_2023) and pd.notna(avg_crime_2022):
-                crime_change = avg_crime_2023 - avg_crime_2022
-                if abs(crime_change) >= 0.1:
-                    st.metric(
-                        f"Tingkat Kriminalitas {selected_region}",
-                        f"{avg_crime_2023:.1f}",
-                        delta=f"{crime_change:+.1f} from 2022",
-                        delta_color="inverse",
-                        help="Rata-rata tingkat kriminalitas per 100.000 penduduk untuk wilayah"
-                    )
+            with col1:
+                if pd.notna(avg_crime_2023) and pd.notna(avg_crime_2022):
+                    crime_change = avg_crime_2023 - avg_crime_2022
+                    if abs(crime_change) >= 0.1:
+                        st.metric(
+                            f"Tingkat Kriminalitas {selected_region}",
+                            f"{avg_crime_2023:.1f}",
+                            delta=f"{crime_change:+.1f} from 2022",
+                            delta_color="inverse",
+                            help="Rata-rata tingkat kriminalitas per 100.000 penduduk untuk wilayah"
+                        )
+                    else:
+                        st.metric(
+                            f"Tingkat Kriminalitas {selected_region}",
+                            f"{avg_crime_2023:.1f}",
+                            delta="Mirip dengan 2022",
+                            delta_color="off",
+                            help="Rata-rata tingkat kriminalitas per 100.000 penduduk untuk wilayah"
+                        )
                 else:
                     st.metric(
                         f"Tingkat Kriminalitas {selected_region}",
-                        f"{avg_crime_2023:.1f}",
-                        delta="Similar to 2022",
-                        delta_color="off",
+                        f"{avg_crime_2023:.1f}" if pd.notna(avg_crime_2023) else "N/A",
                         help="Rata-rata tingkat kriminalitas per 100.000 penduduk untuk wilayah"
                     )
-            else:
-                st.metric(
-                    f"Tingkat Kriminalitas {selected_region}",
-                    f"{avg_crime_2023:.1f}" if pd.notna(avg_crime_2023) else "N/A",
-                    help="Rata-rata tingkat kriminalitas per 100.000 penduduk untuk wilayah"
-                )
             
             # Regional rank among all regions
-            region_averages = df_main.groupby('Region')['Tindak Pidana 2023'].mean().dropna().sort_values(ascending=True)
-            regional_rank = list(region_averages.index).index(selected_region) + 1 if selected_region in region_averages.index else None
-            total_regions = len(region_averages)
-            
-            if regional_rank:
-                st.metric(
-                    "Peringkat Wilayah",
-                    f"#{regional_rank} of {total_regions}",
-                    help="Peringkat wilayah berdasarkan rata-rata tingkat kriminalitas (1 = rata-rata tingkat kriminalitas terendah)"
-                )
+            with col2:
+                region_averages = df_main.groupby('Region')['Tindak Pidana 2023'].mean().dropna().sort_values(ascending=True)
+                regional_rank = list(region_averages.index).index(selected_region) + 1 if selected_region in region_averages.index else None
+                total_regions = len(region_averages)
+                
+                if regional_rank:
+                    st.metric(
+                        "Peringkat Wilayah",
+                        f"#{regional_rank} / {total_regions}",
+                        help="Peringkat wilayah berdasarkan rata-rata tingkat kriminalitas (Peringkat rendah lebih baik)"
+                    )
             
             # Number of provinces in region
-            num_provinces = len(regional_data)
-            st.metric(
-                "Provinsi dalam Wilayah",
-                str(num_provinces),
-                help="Jumlah provinsi di wilayah ini"
-            )
+            with col3:
+                num_provinces = len(regional_data)
+                st.metric(
+                    "# Provinsi dalam Wilayah",
+                    f"{num_provinces} Provinsi",
+                    help="Jumlah provinsi di wilayah ini"
+                )
 
 def main():
     st.title("🇮🇩 Dashboard Kriminalitas Indonesia")
@@ -1748,7 +1754,6 @@ def main():
     num_provinces = len(df_filtered['Provinsi'].unique()) if 'Provinsi' in df_filtered.columns else 0
     st.sidebar.write(f"📊 **Provinsi ditampilkan:** {num_provinces}")
     
-    # Main layout - First row
     # Dynamic header based on selection
     if selected_province != 'Semua':
         st.markdown("## Tinjauan Provinsi")
@@ -1757,46 +1762,39 @@ def main():
     else:
         st.markdown("## Tinjauan Nasional")
     
-    # First row: Key metrics and main analysis
-    metrics_col, main_col = st.columns([1, 3])
+    # First row: Key metrics
+    render_key_metrics(df_filtered, selected_province, oc_data, selected_region, df_main)
     
-    # Key metrics in the left column - use container to control height
-    with metrics_col:
-        with st.container():
-            render_key_metrics(df_filtered, selected_province, oc_data, selected_region, df_main)
+    trend_col, top_col = st.columns([3, 2])
     
-    # Main content in the right column
-    with main_col:
-        trend_col, top_col = st.columns([3, 2])
-        
-        with trend_col:
-            trend_fig = create_crime_trend_2012_2023(df_time_series, selected_province, selected_region)
-            if trend_fig:
-                st.plotly_chart(trend_fig, use_container_width=True, config={'displayModeBar': False})
-            else:
-                st.info("Data runtun waktu tidak tersedia")
-        
-        with top_col:
-            top_fig = create_top_provinces_chart(df_filtered)
-            if top_fig:
-                st.plotly_chart(top_fig, use_container_width=True, config={'displayModeBar': False})
-            else:
-                st.info("Data kriminalitas tidak tersedia")
-        
-        # Second row of main column: Crime choropleth
-        geojson_data = load_geojson()
-        province_mapping = create_province_mapping()
-        
-        if geojson_data and province_mapping:
-            with st.spinner("Membuat peta kriminalitas choropleth..."):
-                folium_map = create_choropleth_map(
-                    df_filtered, 'Crime Rate 2023', geojson_data, province_mapping,
-                    region_filter=selected_region, province_filter=selected_province
-                )
-            st_folium(folium_map, width="100%", height=350, returned_objects=[], key="crime_map")
-            # st.info("🔍 **Map Interpretation**: Darker red areas indicate higher crime rates per 100,000 population.")
+    with trend_col:
+        trend_fig = create_crime_trend_2012_2023(df_time_series, selected_province, selected_region)
+        if trend_fig:
+            st.plotly_chart(trend_fig, use_container_width=True, config={'displayModeBar': False})
         else:
-            st.warning("GeoJSON or province mapping not loaded.")
+            st.info("Data runtun waktu tidak tersedia")
+    
+    with top_col:
+        top_fig = create_top_provinces_chart(df_filtered)
+        if top_fig:
+            st.plotly_chart(top_fig, use_container_width=True, config={'displayModeBar': False})
+        else:
+            st.info("Data kriminalitas tidak tersedia")
+    
+    # Third row: Crime choropleth map
+    geojson_data = load_geojson()
+    province_mapping = create_province_mapping()
+    
+    if geojson_data and province_mapping:
+        with st.spinner("Membuat peta kriminalitas choropleth..."):
+            folium_map = create_choropleth_map(
+                df_filtered, 'Crime Rate 2023', geojson_data, province_mapping,
+                region_filter=selected_region, province_filter=selected_province
+            )
+        st_folium(folium_map, width="100%", height=350, returned_objects=[], key="crime_map")
+        # st.info("🔍 **Map Interpretation**: Darker red areas indicate higher crime rates per 100,000 population.")
+    else:
+        st.warning("GeoJSON or province mapping not loaded.")
     
     # Second row: Detailed analysis
     st.markdown("---")
