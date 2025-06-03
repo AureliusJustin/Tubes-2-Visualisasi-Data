@@ -1609,7 +1609,7 @@ def render_provincial_metrics(df_filtered, selected_province, selected_region, d
                         st.metric(
                             "Tingkat Kriminalitas 2023",
                             f"{crime_2023:.1f}",
-                            delta=f"{crime_change:+.1f} dari 2022",
+                            delta=f"{crime_change:.1f} dari 2022",
                             delta_color="inverse",  # inverse because higher crime is worse
                             help="Insiden kejahatan per 100.000 penduduk"
                         )
@@ -1727,7 +1727,7 @@ def render_provincial_metrics(df_filtered, selected_province, selected_region, d
                         st.metric(
                             f"Tingkat Kriminalitas {selected_region}",
                             f"{avg_crime_2023:.1f}",
-                            delta=f"{crime_change:+.1f} from 2022",
+                            delta=f"{crime_change:.1f} from 2022",
                             delta_color="inverse",
                             help="Rata-rata tingkat kriminalitas per 100.000 penduduk untuk wilayah"
                         )
