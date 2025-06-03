@@ -1269,7 +1269,7 @@ def render_key_metrics(df_filtered, selected_province, oc_data=None, selected_re
                     st.metric(
                         "Peringkat Dunia", 
                         f"#{world_rank_2023} / 193",
-                        delta=f"{abs(rank_change)} dari 2021",
+                        delta=f"{rank_change} dari 2021",
                         delta_color="inverse",  # inverse because lower rank is better
                         help="Peringkat global di antara semua negara (Peringkat rendah lebih baik)"
                     )
@@ -1300,7 +1300,7 @@ def render_key_metrics(df_filtered, selected_province, oc_data=None, selected_re
                         st.metric(
                             "Peringkat Asia", 
                             f"#{asia_rank_2023} / 46",
-                            delta=f"{abs(asia_change)} dari 2021",
+                            delta=f"{asia_change} dari 2021",
                             delta_color="inverse",  # inverse because lower rank is better
                             help="Peringkat di antara negara-negara Asia (Peringkat rendah lebih baik)"
                         )
@@ -1331,7 +1331,7 @@ def render_key_metrics(df_filtered, selected_province, oc_data=None, selected_re
                         st.metric(
                             "Peringkat ASEAN", 
                             f"#{asean_rank_2023} / 10",
-                            delta=f"{abs(asean_change)} dari 2021",
+                            delta=f"{asean_change} dari 2021",
                             delta_color="inverse",  # inverse because lower rank is better
                             help="Peringkat di antara negara-negara ASEAN (Peringkat rendah lebih baik)"
                         )
@@ -1642,7 +1642,7 @@ def render_provincial_metrics(df_filtered, selected_province, selected_region, d
                                     st.metric(
                                         f"Peringkat di {province_data['Region']}",
                                         f"#{regional_rank} / {total_in_region}",
-                                        delta=f"{abs(rank_change)} dari 2022",
+                                        delta=f"{rank_change} dari 2022",
                                         delta_color="inverse",  # inverse because lower rank is better
                                         help="Peringkat wilayah berdasarkan tingkat kriminalitas (Peringkat rendah lebih baik)"
                                     )
@@ -1681,7 +1681,7 @@ def render_provincial_metrics(df_filtered, selected_province, selected_region, d
                                 st.metric(
                                     "Peringkat Nasional",
                                     f"#{national_rank} / {total_provinces}",
-                                    delta=f"{abs(rank_change)} dari 2022",
+                                    delta=f"{rank_change} dari 2022",
                                     delta_color="inverse",  # inverse because lower rank is better
                                     help="Peringkat nasional berdasarkan tingkat kriminalitas (Peringkat rendah lebih baik)"
                                 )
@@ -1757,7 +1757,7 @@ def render_provincial_metrics(df_filtered, selected_province, selected_region, d
                             st.metric(
                                 "Peringkat Wilayah",
                                 f"#{regional_rank} / {total_regions}",
-                                delta=f"{abs(rank_change)} dari 2022",
+                                delta=f"{rank_change} dari 2022",
                                 delta_color="inverse",  # inverse because lower rank is better
                                 help="Peringkat wilayah berdasarkan rata-rata tingkat kriminalitas (Peringkat rendah lebih baik)"
                             )
