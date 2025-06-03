@@ -39,6 +39,19 @@ st.markdown("""
         background-color: #25262d;
         padding: 1rem;
         border-radius: 0.5rem;
+        min-height: 120px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    
+    /* Ensure metric containers have consistent height */
+    div[data-testid="metric-container"] {
+        min-height: 120px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: stretch;
     }
     
     /* Chart containers - single container approach */
@@ -1256,7 +1269,7 @@ def render_key_metrics(df_filtered, selected_province, oc_data=None, selected_re
                     st.metric(
                         "Peringkat Dunia", 
                         f"#{world_rank_2023} / 193",
-                        delta=f"{rank_change:+d} dari 2021",
+                        delta=f"{abs(rank_change)} dari 2021",
                         delta_color="inverse",  # inverse because lower rank is better
                         help="Peringkat global di antara semua negara (Peringkat rendah lebih baik)"
                     )
@@ -1287,7 +1300,7 @@ def render_key_metrics(df_filtered, selected_province, oc_data=None, selected_re
                         st.metric(
                             "Peringkat Asia", 
                             f"#{asia_rank_2023} / 46",
-                            delta=f"{asia_change:+d} dari 2021",
+                            delta=f"{abs(asia_change)} dari 2021",
                             delta_color="inverse",  # inverse because lower rank is better
                             help="Peringkat di antara negara-negara Asia (Peringkat rendah lebih baik)"
                         )
@@ -1318,7 +1331,7 @@ def render_key_metrics(df_filtered, selected_province, oc_data=None, selected_re
                         st.metric(
                             "Peringkat ASEAN", 
                             f"#{asean_rank_2023} / 10",
-                            delta=f"{asean_change:+d} dari 2021",
+                            delta=f"{abs(asean_change)} dari 2021",
                             delta_color="inverse",  # inverse because lower rank is better
                             help="Peringkat di antara negara-negara ASEAN (Peringkat rendah lebih baik)"
                         )
@@ -1624,12 +1637,12 @@ def render_provincial_metrics(df_filtered, selected_province, selected_region, d
                         
                         if regional_rank:
                             if regional_rank_2022 is not None:
-                                rank_change = regional_rank - regional_rank_2022  # Positive = worse (rank increased), Negative = better (rank decreased)
+                                rank_change = -(regional_rank - regional_rank_2022)  # Positive = worse (rank increased), Negative = better (rank decreased)
                                 if rank_change != 0:
                                     st.metric(
                                         f"Peringkat di {province_data['Region']}",
                                         f"#{regional_rank} / {total_in_region}",
-                                        delta=f"{rank_change:+d} dari 2022",
+                                        delta=f"{abs(rank_change)} dari 2022",
                                         delta_color="inverse",  # inverse because lower rank is better
                                         help="Peringkat wilayah berdasarkan tingkat kriminalitas (Peringkat rendah lebih baik)"
                                     )
@@ -1663,12 +1676,12 @@ def render_provincial_metrics(df_filtered, selected_province, selected_region, d
                     
                     if national_rank:
                         if national_rank_2022 is not None:
-                            rank_change = national_rank - national_rank_2022  # Positive = worse (rank increased), Negative = better (rank decreased)
+                            rank_change = -(national_rank - national_rank_2022)  # Positive = worse (rank increased), Negative = better (rank decreased)
                             if rank_change != 0:
                                 st.metric(
                                     "Peringkat Nasional",
                                     f"#{national_rank} / {total_provinces}",
-                                    delta=f"{rank_change:+d} dari 2022",
+                                    delta=f"{abs(rank_change)} dari 2022",
                                     delta_color="inverse",  # inverse because lower rank is better
                                     help="Peringkat nasional berdasarkan tingkat kriminalitas (Peringkat rendah lebih baik)"
                                 )
@@ -1739,12 +1752,12 @@ def render_provincial_metrics(df_filtered, selected_province, selected_region, d
                 
                 if regional_rank:
                     if regional_rank_2022 is not None:
-                        rank_change = regional_rank - regional_rank_2022  # Positive = worse (rank increased), Negative = better (rank decreased)
+                        rank_change = -(regional_rank - regional_rank_2022)  # Positive = worse (rank increased), Negative = better (rank decreased)
                         if rank_change != 0:
                             st.metric(
                                 "Peringkat Wilayah",
                                 f"#{regional_rank} / {total_regions}",
-                                delta=f"{rank_change:+d} dari 2022",
+                                delta=f"{abs(rank_change)} dari 2022",
                                 delta_color="inverse",  # inverse because lower rank is better
                                 help="Peringkat wilayah berdasarkan rata-rata tingkat kriminalitas (Peringkat rendah lebih baik)"
                             )
