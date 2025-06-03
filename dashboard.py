@@ -1239,7 +1239,7 @@ def render_key_metrics(df_filtered, selected_province, oc_data=None, selected_re
                     st.metric(
                         "Tingkat Kriminalitas (OC Index)", 
                         f"{crime_rate_2023:.2f}",
-                        delta=f"{crime_rate_change:+.2f} dari 2021",
+                        delta=f"{crime_rate_change:.2f} dari 2021",
                         delta_color="inverse",  # inverse because higher crime rate is worse
                         help="Skor Indeks Kejahatan Terorganisir (0-10, Semakin tinggi semakin buruk)"
                     )
@@ -1555,20 +1555,28 @@ def create_top_provinces_chart(df_filtered):
     
     return fig
 
-def create_scatter_plot(df_filtered, x_col, y_col, title):
-    """Create scatter plot without trendline"""
+def create_scatter_plot(df_filtered, x_col, y_col, title, region_filter=None, province_filter=None):
+    """Create scatter plot with dynamic coloring and legend based on region/province filter"""
     if x_col not in df_filtered.columns or y_col not in df_filtered.columns:
         return None
-    
+
+    # Determine coloring and legend
+    if province_filter and province_filter != 'Semua' and 'Provinsi' in df_filtered.columns:
+        color_col = 'Provinsi'
+    elif region_filter and region_filter != 'Semua' and 'Provinsi' in df_filtered.columns:
+        color_col = 'Provinsi'
+    else:
+        color_col = 'Region' if 'Region' in df_filtered.columns else None
+
     fig = px.scatter(
         df_filtered,
         x=x_col,
         y=y_col,
-        hover_name='Provinsi',
+        hover_name='Provinsi' if 'Provinsi' in df_filtered.columns else None,
         title=title,
-        color='Region' if 'Region' in df_filtered.columns else None
+        color=color_col
     )
-    
+
     fig.update_layout(
         plot_bgcolor='#25262d',
         paper_bgcolor='#25262d',
@@ -1576,7 +1584,7 @@ def create_scatter_plot(df_filtered, x_col, y_col, title):
         margin=dict(l=20, r=20, t=40, b=20),
         height=400
     )
-    
+
     return fig
 
 def render_provincial_metrics(df_filtered, selected_province, selected_region, df_main):
@@ -1907,9 +1915,11 @@ def main():
         if 'gini_ratio_2023' in df_filtered.columns and 'Tindak Pidana 2023' in df_filtered.columns:
             gini_scatter = create_scatter_plot(
                 df_filtered,
-                'gini_ratio_2023', 
+                'gini_ratio_2023',
                 'Tindak Pidana 2023',
-                "Ketimpangan Pendapatan vs Tingkat Kriminalitas"
+                "Ketimpangan Pendapatan vs Tingkat Kriminalitas",
+                region_filter=selected_region,
+                province_filter=selected_province
             )
             if gini_scatter:
                 st.plotly_chart(gini_scatter, use_container_width=True, config={'displayModeBar': False})
@@ -1932,7 +1942,9 @@ def main():
                 df_filtered,
                 'Pendidikan Terakhir SMA/PT',
                 'Tindak Pidana 2023',
-                "Tingkat Pendidikan vs Tingkat Kriminalitas"
+                "Tingkat Pendidikan vs Tingkat Kriminalitas",
+                region_filter=selected_region,
+                province_filter=selected_province
             )
             if edu_scatter:
                 st.plotly_chart(edu_scatter, use_container_width=True, config={'displayModeBar': False})
