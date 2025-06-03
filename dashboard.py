@@ -11,6 +11,7 @@ import warnings
 import json
 import folium
 from folium import plugins
+from folium import Element
 import branca.colormap as cm
 from streamlit_folium import st_folium
 import uuid
@@ -60,20 +61,105 @@ st.markdown("""
         height: 100% !important;
     }
     
-    /* Folium map containers */
+    /* Folium map containers - enhanced styling */
     .stFolium {
-        background-color: #25262d;
-        border-radius: 0.75rem;
-        overflow: hidden;
-        margin: 1rem 0;
-        padding: 1rem;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        background-color: #25262d !important;
+        border-radius: 0.75rem !important;
+        overflow: hidden !important;
+        margin: 1rem 0 !important;
+        padding: 0 !important;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important;
+        border: none !important;
     }
     
-    /* Additional styling for map iframe */
+    /* Map iframe styling with perfect rounded corners */
     .stFolium iframe {
-        border-radius: 0.75rem;
+        border-radius: 0.75rem !important;
+        border: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        background-color: #25262d !important;
+        outline: none !important;
     }
+    
+    /* Enhanced leaflet container styling */
+    .leaflet-container {
+        background-color: #25262d !important;
+        border-radius: 0.75rem !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        outline: none !important;
+        border: none !important;
+    }
+    
+    /* Force all leaflet panes to have dark background and prevent black squares */
+    .leaflet-pane, 
+    .leaflet-tile-pane, 
+    .leaflet-map-pane,
+    .leaflet-overlay-pane,
+    .leaflet-shadow-pane,
+    .leaflet-marker-pane,
+    .leaflet-tooltip-pane,
+    .leaflet-popup-pane {
+        background-color: #25262d !important;
+    }
+    
+    /* Hide any tile layers that might show black background */
+    .leaflet-tile-pane {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    
+    /* Style leaflet controls to match dark theme */
+    .leaflet-control-attribution {
+        background-color: rgba(37, 38, 45, 0.9) !important;
+        color: white !important;
+        border-radius: 4px !important;
+        font-size: 10px !important;
+        border: none !important;
+    }
+    
+    .leaflet-control-attribution a {
+        color: #ccc !important;
+    }
+    
+    .leaflet-control-zoom {
+        border: none !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3) !important;
+    }
+    
+    .leaflet-control-zoom a {
+        background-color: #25262d !important;
+        color: white !important;
+        border: 1px solid #444 !important;
+        text-decoration: none !important;
+    }
+    
+    .leaflet-control-zoom a:hover {
+        background-color: #3a3b42 !important;
+        color: white !important;
+    }
+    
+    /* Force any div containing folium maps to use dark theme */
+    div[data-testid="stFolium"] {
+        background-color: #25262d !important;
+        border-radius: 0.75rem !important;
+        overflow: hidden !important;
+        border: none !important;
+    }
+    
+    /* Additional protection against black backgrounds */
+    .leaflet-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #25262d;
+        z-index: -1;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -499,6 +585,10 @@ def create_choropleth_map(df, metric, geojson_data, province_mapping, region_fil
         map_data = df[['Provinsi', 'Pendapatan Agustus', 'Region']].dropna(subset=['Provinsi'])
         metric_col = 'Pendapatan Agustus'
         title = 'Average Income by Province (August 2023)'
+    elif metric == 'Education':
+        map_data = df[['Provinsi', 'Pendidikan Terakhir SMA/PT', 'Region']].dropna(subset=['Provinsi'])
+        metric_col = 'Pendidikan Terakhir SMA/PT'
+        title = 'Higher Education Completion Rate by Province (2023)'
     else:
         map_data = df[['Provinsi', 'Tindak Pidana 2023', 'Region']].dropna(subset=['Provinsi'])
         metric_col = 'Tindak Pidana 2023'
@@ -507,40 +597,343 @@ def create_choropleth_map(df, metric, geojson_data, province_mapping, region_fil
     reverse_mapping = {v: k for k, v in province_mapping.items()}
 
     # Debug output
-    print(f"[DEBUG] map_data rows: {len(map_data)}")
-    print(f"[DEBUG] map_data Provinsi unique: {map_data['Provinsi'].unique()}")
-    print(f"[DEBUG] reverse_mapping keys: {list(reverse_mapping.keys())}")
+    # print(f"[DEBUG] map_data rows: {len(map_data)}")
+    # print(f"[DEBUG] map_data Provinsi unique: {map_data['Provinsi'].unique()}")
+    # print(f"[DEBUG] reverse_mapping keys: {list(reverse_mapping.keys())}")
 
     indonesia_sw = [-11.0, 94.0]
     indonesia_ne = [6.0, 141.0]
 
+    # Create map with zooming disabled and fixed to Indonesia
     m = folium.Map(
         location=[-2.5, 118.0],
-        zoom_start=5,
-        tiles='CartoDB positron',
-        max_bounds=True,
+        zoom_start=4,
+        tiles=None,
         min_zoom=4,
-        max_zoom=8
+        max_zoom=8,
+        zoom_control=True,
+        scrollWheelZoom=True,
+        doubleClickZoom=True,
+        prefer_canvas=True,
+        attributionControl=True
     )
-    m.fit_bounds([indonesia_sw, indonesia_ne])
+    
+    # Add custom CSS to force dark background and fix styling issues
+    custom_css = """
+    <style>
+    /* Force all map containers to have dark background */
+    .folium-map, .leaflet-container {
+        background-color: #25262d !important;
+        border-radius: 0.75rem !important;
+        overflow: hidden !important;
+    }
+    
+    /* Hide all tile layers and ensure dark background */
+    .leaflet-tile-pane {
+        display: none !important;
+    }
+    
+    /* Style all panes with dark background */
+    .leaflet-pane, 
+    .leaflet-map-pane,
+    .leaflet-overlay-pane,
+    .leaflet-shadow-pane,
+    .leaflet-marker-pane,
+    .leaflet-tooltip-pane,
+    .leaflet-popup-pane {
+        background-color: #25262d !important;
+    }
+    
+    /* Style zoom controls */
+    .leaflet-control-zoom {
+        border: none !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3) !important;
+    }
+    
+    .leaflet-control-zoom a {
+        background-color: #25262d !important;
+        color: white !important;
+        border: 1px solid #444 !important;
+        text-decoration: none !important;
+    }
+    
+    .leaflet-control-zoom a:hover {
+        background-color: #3a3b42 !important;
+        color: white !important;
+    }
+    
+    /* Style attribution */
+    .leaflet-control-attribution {
+        background-color: rgba(37, 38, 45, 0.9) !important;
+        color: white !important;
+        border-radius: 4px !important;
+        font-size: 10px !important;
+    }
+    
+    .leaflet-control-attribution a {
+        color: #ccc !important;
+    }
+    
+    /* Remove any black backgrounds */
+    .leaflet-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #25262d;
+        z-index: -1;
+    }
+    
+    /* Style colormap legend with light text - Selective targeting */
+    .colormap-container, .legend, 
+    div.legend, div.colormap-container {
+        background-color: rgba(37, 38, 45, 0.95) !important;
+        border-radius: 8px !important;
+        padding: 8px !important;
+        border: none !important;
+        color: #ffffff !important;
+        font-family: 'Arial', sans-serif !important;
+    }
+    
+    /* Don't style .colormap directly - preserve gradients */
+    
+    /* Super specific legend text targeting - exclude colormap */
+    .leaflet-control-container .legend,
+    .leaflet-control-container .colormap-container,
+    .leaflet-control .legend,
+    .leaflet-control .colormap-container {
+        background-color: rgba(37, 38, 45, 0.95) !important;
+        color: #ffffff !important;
+        border: none !important;
+    }
+    
+    /* Target only text elements in legends, NOT the colormap gradient */
+    .legend *, .colormap-container *,
+    .leaflet-control .legend *, .leaflet-control .colormap-container *,
+    .legend div, .colormap-container div,
+    .legend span, .colormap-container span,
+    .legend p, .colormap-container p,
+    .legend text, .colormap-container text {
+        color: #ffffff !important;
+    }
+    
+    /* Target SVG text elements specifically */
+    .legend text, .colormap-container text {
+        fill: #ffffff !important;
+    }
+    
+    /* Preserve colormap gradient - DO NOT override colors for these */
+    .colormap .leaflet-control-colorpicker,
+    .colormap .leaflet-control-colorpicker *,
+    .colormap img,
+    .colormap canvas,
+    .colormap svg rect,
+    .colormap svg path,
+    .colormap .leaflet-control-colorpicker-gradient {
+        color: inherit !important;
+        fill: inherit !important;
+        background: inherit !important;
+    }
+    
+    /* Specific element targeting - only text elements */
+    .colormap-container .caption, .legend .caption,
+    .legend-title, .colormap-container-title {
+        color: #ffffff !important;
+        font-weight: bold !important;
+        font-size: 12px !important;
+        margin-bottom: 4px !important;
+    }
+    
+    .colormap-container .colorbar, .legend .colorbar {
+        border: none !important;
+        border-radius: 4px !important;
+    }
+    
+    .colormap-container .tick, .legend .tick,
+    .legend-scale, .colormap-container-scale {
+        color: #ffffff !important;
+        font-size: 10px !important;
+        font-weight: normal !important;
+    }
+    
+    /* Nuclear option - but EXCLUDE colormap gradients */
+    [class*="legend"] *:not(img):not(canvas):not([class*="gradient"]):not([class*="colorpicker"]) {
+        color: #ffffff !important;
+    }
+    
+    [class*="legend"] text, .legend text, .colormap-container text {
+        fill: #ffffff !important;
+    }
+    </style>
+    """
+    m.get_root().html.add_child(folium.Element(custom_css))
 
-    folium.Rectangle(
-        bounds=[indonesia_sw, indonesia_ne],
-        color="#ff7800",
-        fill=False,
-        weight=2
-    ).add_to(m)
-
-    bounds_js = f'''
+    # Add JavaScript to properly configure the map and fix zoom controls
+    map_config_js = f'''
         <script>
-        var map = window._last_folium_map || window.map;
-        if (map) {{
-            map.setMaxBounds([[{indonesia_sw[0]}, {indonesia_sw[1]}], [{indonesia_ne[0]}, {indonesia_ne[1]}]]);
-        }}
+        // Wait for map to be ready
+        document.addEventListener('DOMContentLoaded', function() {{
+            setTimeout(function() {{
+                var mapContainer = document.querySelector('.folium-map');
+                if (mapContainer && window[mapContainer.id]) {{
+                    var map = window[mapContainer.id];
+                    
+                    // Set strict bounds and disable all zoom functionality
+                    var bounds = [[{indonesia_sw[0]}, {indonesia_sw[1]}], [{indonesia_ne[0]}, {indonesia_ne[1]}]];
+                    map.setMaxBounds(bounds);
+                    
+                    // Lock zoom level to 5
+                    map.setZoom(5);
+                    map.setMinZoom(5);
+                    map.setMaxZoom(5);
+                    
+                    // Disable all zoom controls and interactions
+                    map.scrollWheelZoom.disable();
+                    map.doubleClickZoom.disable();
+                    map.touchZoom.disable();
+                    map.boxZoom.disable();
+                    map.keyboard.disable();
+                    
+                    // Remove zoom control if it exists
+                    if (map.zoomControl) {{
+                        map.zoomControl.remove();
+                    }}
+                    
+                    // Force dark background
+                    var container = map.getContainer();
+                    if (container) {{
+                        container.style.backgroundColor = '#25262d';
+                        container.style.borderRadius = '0.75rem';
+                    }}
+                    
+                    // Ensure map stays within bounds and cannot be dragged outside
+                    map.on('drag', function() {{
+                        map.panInsideBounds(bounds, {{animate: false}});
+                    }});
+                    
+                    // Disable zoom on any zoom attempt
+                    map.on('zoomstart', function(e) {{
+                        e.preventDefault();
+                        map.setZoom(5);
+                    }});
+                    
+                    // Ultra-aggressive legend styling for white text
+                    function applyLegendStyling() {{
+                        // Style all legend containers
+                        var legendContainers = document.querySelectorAll('.legend, .colormap, .colormap-container');
+                        legendContainers.forEach(function(container) {{
+                            container.style.backgroundColor = 'rgba(37, 38, 45, 0.95)';
+                            container.style.color = '#ffffff';
+                            container.style.border = 'none';
+                            container.style.borderRadius = '8px';
+                            container.style.padding = '8px';
+                        }});
+                        
+                        // Force white color on text elements only, preserve colormap gradients
+                        var textSelectors = [
+                            '.legend', 
+                            '.colormap-container',
+                            '[class*="legend"]:not([class*="gradient"]):not([class*="colorpicker"])'
+                        ];
+                        
+                        textSelectors.forEach(function(selector) {{
+                            try {{
+                                var containers = document.querySelectorAll(selector);
+                                containers.forEach(function(container) {{
+                                    // Only target text nodes and text elements, not gradient elements
+                                    var textElements = container.querySelectorAll('div, span, p, text, *:not(img):not(canvas):not([class*="gradient"]):not([class*="colorpicker"])');
+                                    textElements.forEach(function(element) {{
+                                        // Skip elements that are likely colormap gradients
+                                        if (!element.classList.contains('leaflet-control-colorpicker') && 
+                                            !element.classList.contains('gradient') &&
+                                            element.tagName !== 'IMG' &&
+                                            element.tagName !== 'CANVAS') {{
+                                            
+                                            // Set text color
+                                            element.style.color = '#ffffff';
+                                            element.style.setProperty('color', '#ffffff', 'important');
+                                            
+                                            // Set SVG fill for text elements only
+                                            if (element.tagName === 'text' || element.tagName === 'TEXT') {{
+                                                element.style.fill = '#ffffff';
+                                                element.style.setProperty('fill', '#ffffff', 'important');
+                                                element.setAttribute('fill', '#ffffff');
+                                            }}
+                                        }}
+                                    }});
+                                }});
+                            }} catch(e) {{
+                                // Ignore selector errors
+                            }}
+                        }});
+                        
+                        // Specifically handle caption and tick elements
+                        var specificElements = document.querySelectorAll('.caption, .legend-title, .tick, .legend-scale');
+                        specificElements.forEach(function(element) {{
+                            element.style.color = '#ffffff';
+                            element.style.setProperty('color', '#ffffff', 'important');
+                        }});
+                    }}
+                    
+                    // Apply styling multiple times with increasing delays
+                    setTimeout(applyLegendStyling, 100);
+                    setTimeout(applyLegendStyling, 500);
+                    setTimeout(applyLegendStyling, 1000);
+                    setTimeout(applyLegendStyling, 2000);
+                    
+                    // Set up a mutation observer to catch any dynamically added legend elements
+                    if (typeof MutationObserver !== 'undefined') {{
+                        var observer = new MutationObserver(function(mutations) {{
+                            var shouldRestyle = false;
+                            mutations.forEach(function(mutation) {{
+                                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {{
+                                    for (var i = 0; i < mutation.addedNodes.length; i++) {{
+                                        var node = mutation.addedNodes[i];
+                                        if (node.nodeType === Node.ELEMENT_NODE && 
+                                            (node.classList.contains('legend') || 
+                                             node.classList.contains('colormap') || 
+                                             node.classList.contains('colormap-container') ||
+                                             node.querySelector('.legend, .colormap, .colormap-container'))) {{
+                                            shouldRestyle = true;
+                                            break;
+                                        }}
+                                    }}
+                                }}
+                            }});
+                            if (shouldRestyle) {{
+                                setTimeout(applyLegendStyling, 50);
+                            }}
+                        }});
+                        
+                        observer.observe(document.body, {{
+                            childList: true,
+                            subtree: true
+                        }});
+                    }}
+                    
+                    // Store map reference
+                    window._last_folium_map = map;
+                }}
+            }}, 200);
+        }});
         </script>
     '''
-    from folium import Element
-    m.get_root().html.add_child(Element(bounds_js))
+    m.get_root().html.add_child(Element(map_config_js))
+    
+    # Add large dark background rectangle to cover entire visible area
+    folium.Rectangle(
+        bounds=[[-20.0, 80.0], [15.0, 150.0]],  # Very large bounds to cover all visible area
+        color="#25262d",
+        fill=True,
+        fillColor="#25262d",
+        fillOpacity=1.0,
+        weight=0,
+        popup=None,
+        tooltip=None,
+        interactive=False
+    ).add_to(m)
 
     if len(map_data) > 0:
         # Always exclude 'INDONESIA' (national aggregate) from all province-based calculations and coloring
@@ -566,7 +959,7 @@ def create_choropleth_map(df, metric, geojson_data, province_mapping, region_fil
             if geojson_name:
                 province_data[geojson_name] = row[metric_col]
                 region_data[geojson_name] = row['Region']
-        print(f"[DEBUG] province_data sample: {list(province_data.items())[:5]}")
+        # print(f"[DEBUG] province_data sample: {list(province_data.items())[:5]}")
         # Determine which provinces to highlight
         def highlight_feature(feature):
             prov_name = feature['properties']['Propinsi']
@@ -635,9 +1028,9 @@ def create_choropleth_map(df, metric, geojson_data, province_mapping, region_fil
             prov_name = feature['properties']['Propinsi']
             value = province_data.get(prov_name, None)
             if value is not None:
-                feature['properties']['_tooltip'] = f"<b>{prov_name}</b><br>Value: {value:,.2f}"
+                feature['properties']['_tooltip'] = f"<b>{prov_name}</b><br>{value:,.2f}"
             else:
-                feature['properties']['_tooltip'] = f"<b>{prov_name}</b><br>Value: N/A"
+                feature['properties']['_tooltip'] = f"<b>{prov_name}</b><br>N/A"
 
         # Now re-add the GeoJson with the custom tooltip field
         folium.GeoJson(
@@ -666,7 +1059,18 @@ def create_choropleth_map(df, metric, geojson_data, province_mapping, region_fil
 # --- Visualization Components Modularization ---
 
 def render_key_metrics(df_filtered, selected_province, oc_data=None):
-    st.subheader("🇮🇩 Indonesia Global Crime Rankings")
+    # Add CSS to make the metrics column fill available height
+    st.markdown("""
+    <style>
+    .metrics-container {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-around;
+        padding: 1rem 0;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     
     if oc_data and oc_data['indonesia_2023'] is not None:
         indonesia_2023 = oc_data['indonesia_2023']
@@ -792,163 +1196,7 @@ def render_key_metrics(df_filtered, selected_province, oc_data=None):
     else:
         st.warning("OC Index data not available")
 
-def render_bubble_and_relationship(df_filtered, selected_region, selected_province):
-    st.subheader("Socioeconomic Relationships")
-    col1, col2, col3 = st.columns(3)
-    numeric_cols = [col for col in df_filtered.select_dtypes(include=[np.number]).columns if col != 'Provinsi']
-    with col1:
-        x_axis = st.selectbox("X-axis:", numeric_cols, index=numeric_cols.index('Pendapatan Agustus') if 'Pendapatan Agustus' in numeric_cols else 0)
-    with col2:
-        y_axis = st.selectbox("Y-axis:", numeric_cols, index=numeric_cols.index('Pendidikan Terakhir SMA/PT') if 'Pendidikan Terakhir SMA/PT' in numeric_cols else 1)
-    with col3:
-        size_axis = st.selectbox("Bubble size:", numeric_cols, index=numeric_cols.index('Tindak Pidana 2023') if 'Tindak Pidana 2023' in numeric_cols else 2)
-    if len(numeric_cols) >= 3:
-        bubble_fig = create_bubble_chart(
-            df_filtered, x_axis, y_axis, size_axis, 
-            title=f"{y_axis} vs {x_axis} (Bubble size: {size_axis})",
-            region_filter=selected_region,
-            province_filter=selected_province
-        )
-        st.plotly_chart(bubble_fig, use_container_width=True)
-    if len(numeric_cols) >= 2:
-        st.subheader("Relationship Analysis")
-        col1, col2 = st.columns(2)
-        with col1:
-            if 'Pendidikan Terakhir SMA/PT' in df_filtered.columns and 'Tindak Pidana 2023' in df_filtered.columns:
-                color_col = 'Provinsi' if selected_province != 'All' or selected_region != 'All' else 'Region'
-                fig1 = px.scatter(
-                    df_filtered, 
-                    x='Pendidikan Terakhir SMA/PT', 
-                    y='Tindak Pidana 2023',
-                    color=color_col,
-                    hover_name='Provinsi',
-                    title="Education vs Crime Rate",
-                    trendline="ols"
-                )
-                fig1.update_layout(
-                    plot_bgcolor='#25262d',
-                    paper_bgcolor='#25262d',
-                    font_color='white',
-                    margin=dict(l=20, r=20, t=40, b=20)
-                )
-                st.plotly_chart(fig1, use_container_width=True)
-        with col2:
-            if 'gini_ratio_2023' in df_filtered.columns and 'Tindak Pidana 2023' in df_filtered.columns:
-                color_col = 'Provinsi' if selected_province != 'All' or selected_region != 'All' else 'Region'
-                fig2 = px.scatter(
-                    df_filtered, 
-                    x='gini_ratio_2023', 
-                    y='Tindak Pidana 2023',
-                    color=color_col,
-                    hover_name='Provinsi',
-                    title="Income Inequality vs Crime Rate",
-                    trendline="ols"
-                )
-                fig2.update_layout(
-                    plot_bgcolor='#25262d',
-                    paper_bgcolor='#25262d',
-                    font_color='white',
-                    margin=dict(l=20, r=20, t=40, b=20)
-                )
-                st.plotly_chart(fig2, use_container_width=True)
 
-def render_correlation_tab(df_filtered):
-    st.subheader("Correlation Analysis")
-    corr_fig = create_correlation_heatmap(df_filtered)
-    if corr_fig:
-        st.plotly_chart(corr_fig, use_container_width=True)
-
-def render_trend_tab(df_time_series, df_filtered):
-    st.subheader("Time Series Analysis")
-    trend_fig = create_trend_chart(df_time_series)
-    if trend_fig:
-        st.plotly_chart(trend_fig, use_container_width=True)
-    else:
-        st.info("Time series data not available or incomplete.")
-    if df_time_series is not None and not df_time_series.empty:
-        st.subheader("Crime Rate by Province (2021-2023)")
-        provinces_sample = df_filtered['Provinsi'].head(10).tolist()
-        if 'Tindak Pidana 2021' in df_filtered.columns:
-            crime_data = df_filtered[df_filtered['Provinsi'].isin(provinces_sample)]
-            crime_cols = ['Tindak Pidana 2021', 'Tindak Pidana 2022', 'Tindak Pidana 2023']
-            available_crime_cols = [col for col in crime_cols if col in crime_data.columns]
-            if available_crime_cols:
-                melted_data = crime_data.melt(
-                    id_vars=['Provinsi', 'Region'],
-                    value_vars=available_crime_cols,
-                    var_name='Year',
-                    value_name='Crime_Rate'
-                )
-                melted_data['Year'] = melted_data['Year'].str.extract(r'(\d{4})').astype(int)
-                fig_trend = px.line(
-                    melted_data,
-                    x='Year',
-                    y='Crime_Rate',
-                    color='Provinsi',
-                    title="Crime Rate Trends by Province (2021-2023)",
-                    markers=True
-                )
-                fig_trend.update_xaxes(dtick=1, tickformat="d")
-                fig_trend.update_yaxes(title_text="Crime Rate")
-                fig_trend.update_layout(
-                    plot_bgcolor='#25262d',
-                    paper_bgcolor='#25262d',
-                    font_color='white',
-                    margin=dict(l=20, r=20, t=40, b=20)
-                )
-                st.plotly_chart(fig_trend, use_container_width=True)
-
-def render_regional_tab(df_filtered, selected_region, selected_province):
-    st.subheader("Regional Analysis & Choropleth Map")
-    regional_stats = create_regional_comparison(df_filtered)
-    if regional_stats is not None:
-        st.subheader("Average Values by Region")
-        st.dataframe(regional_stats)
-        if 'Tindak Pidana 2023' in regional_stats.columns:
-            fig_regional = px.bar(
-                x=regional_stats.index,
-                y=regional_stats['Tindak Pidana 2023'],
-                title="Average Crime Rate by Region (2023)",
-                labels={'x': 'Region', 'y': 'Crime Rate'}
-            )
-            fig_regional.update_layout(
-                plot_bgcolor='#25262d',
-                paper_bgcolor='#25262d',
-                font_color='white',
-                margin=dict(l=20, r=20, t=40, b=20)
-            )
-            st.plotly_chart(fig_regional, use_container_width=True)
-    st.markdown("---")
-    render_choropleth_section(df_filtered, selected_region, selected_province)
-
-def render_choropleth_section(df_filtered, selected_region, selected_province):
-    st.subheader("Interactive Choropleth Map")
-    geojson_data = load_geojson()
-    province_mapping = create_province_mapping()
-    metric_options = ['Crime Rate 2023', 'Population', 'Gini Ratio', 'Income']
-    # Use selectbox with no key and default index=0 for proper interactivity and default rendering
-    selected_metric = st.selectbox(
-        "Select Metric to Visualize:",
-        metric_options,
-        index=0
-    )
-    if geojson_data and province_mapping:
-        with st.spinner("Creating choropleth map..."):
-            folium_map = create_choropleth_map(
-                df_filtered, selected_metric, geojson_data, province_mapping,
-                region_filter=selected_region, province_filter=selected_province
-            )
-        st_folium(folium_map, width=700, height=500)
-        if selected_metric == 'Crime Rate 2023':
-            st.info("🔍 **Map Interpretation**: Darker red areas indicate higher crime rates per 100,000 population.")
-        elif selected_metric == 'Population':
-            st.info("🔍 **Map Interpretation**: Darker red areas indicate higher population density.")
-        elif selected_metric == 'Gini Ratio':
-            st.info("🔍 **Map Interpretation**: Darker red areas indicate higher income inequality (Gini ratio closer to 1).")
-        elif selected_metric == 'Income':
-            st.info("🔍 **Map Interpretation**: Darker red areas indicate higher average income levels.")
-    else:
-        st.warning("GeoJSON or province mapping not loaded.")
 
 def render_provincial_data_table(df_filtered):
     st.subheader("Detailed Provincial Data")
@@ -1023,9 +1271,122 @@ def load_oc_index_data():
         st.error(f"Error loading OC Index data: {e}")
         return None
 
+def create_crime_trend_2012_2023(df_time_series):
+    """Create Indonesia crime rate trend chart for 2012-2023"""
+    if df_time_series is None or df_time_series.empty:
+        return None
+    
+    # Calculate national average for each year
+    years = []
+    crime_rates = []
+    
+    year_columns = [col for col in df_time_series.columns if col.isdigit() and int(col) >= 2016 and int(col) <= 2023]
+    
+    for year_col in sorted(year_columns):
+        year = int(year_col)
+        # Exclude 'INDONESIA' from calculations to get provincial average
+        df_provinces = df_time_series[df_time_series['Provinsi'] != 'INDONESIA'] if 'INDONESIA' in df_time_series['Provinsi'].values else df_time_series
+        
+        # Clean and convert the data to numeric, handling errors
+        try:
+            # Convert to numeric, coercing errors to NaN
+            numeric_data = pd.to_numeric(df_provinces[year_col], errors='coerce')
+            # Calculate mean, skipping NaN values
+            avg_crime = numeric_data.mean()
+            if not pd.isna(avg_crime):
+                years.append(year)
+                crime_rates.append(avg_crime)
+        except Exception as e:
+            print(f"Error processing year {year}: {e}")
+            continue
+    
+    if len(years) > 0 and len(crime_rates) > 0:
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=years,
+            y=crime_rates,
+            mode='lines+markers',
+            name='National Average',
+            line=dict(color='#ff6b6b', width=3),
+            marker=dict(size=8, color='#ff6b6b')
+        ))
+        
+        fig.update_layout(
+            title="Indonesia Crime Rate Trend (2012-2023)",
+            xaxis_title="Year",
+            yaxis_title="Crime Rate (per 100,000)",
+            plot_bgcolor='#25262d',
+            paper_bgcolor='#25262d',
+            font_color='white',
+            margin=dict(l=20, r=20, t=40, b=20),
+            height=400
+        )
+        
+        return fig
+    
+    return None
+
+def create_top_provinces_chart(df_filtered):
+    """Create chart showing top provinces by crime rate"""
+    if 'Tindak Pidana 2023' not in df_filtered.columns:
+        return None
+    
+    # Get top 10 provinces with highest crime rates
+    top_provinces = df_filtered.nlargest(10, 'Tindak Pidana 2023')
+    
+    fig = px.bar(
+        top_provinces,
+        x='Tindak Pidana 2023',
+        y='Provinsi',
+        orientation='h',
+        title="Top 10 Provinces by Crime Rate 2023",
+        color='Tindak Pidana 2023',
+        color_continuous_scale='Reds',
+    )
+    
+    # Hide the color scale/colorbar
+    fig.update_coloraxes(showscale=False)
+    
+    fig.update_layout(
+        plot_bgcolor='#25262d',
+        paper_bgcolor='#25262d',
+        font_color='white',
+        margin=dict(l=20, r=20, t=40, b=20),
+        height=400,
+        yaxis={'categoryorder': 'total ascending', 'title': ''},
+        showlegend=False
+    )
+    
+    return fig
+
+def create_scatter_plot(df_filtered, x_col, y_col, title):
+    """Create scatter plot with trendline"""
+    if x_col not in df_filtered.columns or y_col not in df_filtered.columns:
+        return None
+    
+    fig = px.scatter(
+        df_filtered,
+        x=x_col,
+        y=y_col,
+        hover_name='Provinsi',
+        title=title,
+        trendline="ols",
+        color='Region' if 'Region' in df_filtered.columns else None
+    )
+    
+    fig.update_layout(
+        plot_bgcolor='#25262d',
+        paper_bgcolor='#25262d',
+        font_color='white',
+        margin=dict(l=20, r=20, t=40, b=20),
+        height=400
+    )
+    
+    return fig
+
 def main():
-    # st.title("🇮🇩 Indonesia Socioeconomic Dashboard")
-    # st.markdown("### Interactive Analysis of Provincial Data (2023)")
+    # st.title("🇮🇩 Indonesia Criminality Dashboard")
+    # st.markdown("### Interactive Analysis of Provincial Crime Data")
     
     # Load data
     with st.spinner("Loading and processing data..."):
@@ -1080,29 +1441,104 @@ def main():
     num_provinces = len(df_filtered['Provinsi'].unique()) if 'Provinsi' in df_filtered.columns else 0
     st.sidebar.write(f"📊 **Provinces shown:** {num_provinces}")
     
-    # Create main layout with metrics column and content column
-    metrics_col, content_col = st.columns([1, 4])
+    # Main layout - First row
+    st.markdown("## 📊 National Overview")
     
-    # Key metrics in the left column (next to sidebar)
+    # First row: Key metrics and main analysis
+    metrics_col, main_col = st.columns([1, 3])
+    
+    # Key metrics in the left column - use container to control height
     with metrics_col:
-        render_key_metrics(df_filtered, selected_province, oc_data)
+        with st.container():
+            render_key_metrics(df_filtered, selected_province, oc_data)
     
-    # Main dashboard content in the right column
-    with content_col:
-        tab1, tab2, tab3, tab4 = st.tabs(["📊 Main Analysis", "🔗 Correlations", "📈 Trends", "🗺️ Regional View"])
+    # Main content in the right column
+    with main_col:
+        trend_col, top_col = st.columns([3, 2])
         
-        with tab1:
-            render_bubble_and_relationship(df_filtered, selected_region, selected_province)
+        with trend_col:
+            trend_fig = create_crime_trend_2012_2023(df_time_series)
+            if trend_fig:
+                st.plotly_chart(trend_fig, use_container_width=True)
+            else:
+                st.info("Time series data not available")
         
-        with tab2:
-            render_correlation_tab(df_filtered)
+        with top_col:
+            top_fig = create_top_provinces_chart(df_filtered)
+            if top_fig:
+                st.plotly_chart(top_fig, use_container_width=True)
+            else:
+                st.info("Crime data not available")
         
-        with tab3:
-            render_trend_tab(df_time_series, df_filtered)
+        # Second row of main column: Crime choropleth
+        geojson_data = load_geojson()
+        province_mapping = create_province_mapping()
         
-        with tab4:
-            render_regional_tab(df_filtered, selected_region, selected_province)
+        if geojson_data and province_mapping:
+            with st.spinner("Creating crime choropleth map..."):
+                folium_map = create_choropleth_map(
+                    df_filtered, 'Crime Rate 2023', geojson_data, province_mapping,
+                    region_filter=selected_region, province_filter=selected_province
+                )
+            st_folium(folium_map, width="100%", height=350, returned_objects=[], key="crime_map")
+            st.info("🔍 **Map Interpretation**: Darker red areas indicate higher crime rates per 100,000 population.")
+        else:
+            st.warning("GeoJSON or province mapping not loaded.")
     
+    # Second row: Detailed analysis
+    st.markdown("---")
+    st.markdown("## 🔍 Socioeconomic Analysis")
+    
+    # Second row: Gini + scatter and Education + scatter
+    gini_col, education_col = st.columns(2)
+    
+    with gini_col:
+        st.subheader("Income Inequality Analysis")
+        
+        # Gini ratio choropleth
+        if geojson_data and province_mapping:
+            with st.spinner("Creating Gini ratio choropleth..."):
+                gini_map = create_choropleth_map(
+                    df_filtered, 'Gini Ratio', geojson_data, province_mapping,
+                    region_filter=selected_region, province_filter=selected_province
+                )
+            st_folium(gini_map, width="100%", height=400, returned_objects=[], key="gini_map")
+        
+        # Gini vs Crime scatter plot
+        if 'gini_ratio_2023' in df_filtered.columns and 'Tindak Pidana 2023' in df_filtered.columns:
+            gini_scatter = create_scatter_plot(
+                df_filtered, 
+                'gini_ratio_2023', 
+                'Tindak Pidana 2023',
+                "Income Inequality vs Crime Rate"
+            )
+            if gini_scatter:
+                st.plotly_chart(gini_scatter, use_container_width=True)
+    
+    with education_col:
+        st.subheader("Education Analysis")
+        
+        # Education choropleth (using SMA/PT completion rate)
+        if geojson_data and province_mapping and 'Pendidikan Terakhir SMA/PT' in df_filtered.columns:
+            with st.spinner("Creating education choropleth..."):
+                edu_map = create_choropleth_map(
+                    df_filtered, 'Education', geojson_data, province_mapping,
+                    region_filter=selected_region, province_filter=selected_province
+                )
+            st_folium(edu_map, width="100%", height=400, returned_objects=[], key="education_map")
+        
+        # Education vs Crime scatter plot
+        if 'Pendidikan Terakhir SMA/PT' in df_filtered.columns and 'Tindak Pidana 2023' in df_filtered.columns:
+            edu_scatter = create_scatter_plot(
+                df_filtered,
+                'Pendidikan Terakhir SMA/PT',
+                'Tindak Pidana 2023',
+                "Education Level vs Crime Rate"
+            )
+            if edu_scatter:
+                st.plotly_chart(edu_scatter, use_container_width=True)
+    
+    # Data table at the bottom
     st.markdown("---")
     render_provincial_data_table(df_filtered)
 
