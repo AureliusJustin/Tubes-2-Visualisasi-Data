@@ -1,0 +1,194 @@
+﻿Continent;Region;Country;Criminality
+Asia;Western Asia;Turkey;6,89
+Africa;West Africa;Cabo Verde;4,04
+Africa;Southern Africa;South Africa;6,63
+Americas;South America;Colombia;7,66
+Americas;South America;Peru;6,35
+Asia;Western Asia;Iraq;7,05
+Americas;South America;Suriname;4,90
+Americas;South America;Venezuela;6,64
+Africa;Southern Africa;Mauritius;4,51
+Africa;Southern Africa;Botswana;3,71
+Asia;Western Asia;Iran;7,10
+Americas;South America;Guyana;5,10
+Africa;West Africa;Senegal;4,81
+Americas;South America;Brazil;6,50
+Asia;South-Eastern Asia;Cambodia;5,83
+Africa;West Africa;Nigeria;7,15
+Asia;South-Eastern Asia;Philippines;6,84
+Africa;Central Africa;Rwanda;3,68
+Africa;West Africa;Ghana;6,01
+Africa;East Africa;Ethiopia;4,79
+Americas;South America;Bolivia;4,30
+Africa;East Africa;Kenya;6,95
+Asia;Southern Asia;Afghanistan;7,08
+Asia;South-Eastern Asia;Indonesia;6,38
+Africa;West Africa;Gambia;4,83
+Africa;Southern Africa;Namibia;4,33
+Americas;Central America;Mexico;7,56
+Africa;Central Africa;Sao Tome and Principe;1,78
+Africa;North Africa;Tunisia;3,79
+Africa;North Africa;Algeria;4,51
+Africa;North Africa;Morocco;4,79
+Africa;Southern Africa;Seychelles;3,68
+Africa;East Africa;Djibouti;3,99
+Asia;Southern Asia;India;5,53
+Africa;Central Africa;Angola;5,29
+Asia;Western Asia;Saudi Arabia;6,01
+Africa;West Africa;Côte d'Ivoire;6,15
+Europe;Western Europe;Switzerland;4,34
+Asia;Western Asia;Yemen;6,13
+Asia;Central Asia and the Caucasus;Tajikistan;5,61
+Africa;Southern Africa;Zambia;4,93
+Asia;Western Asia;Syria;6,84
+Asia;Central Asia and the Caucasus;Turkmenistan;4,61
+Europe;Western Europe;Ireland;4,90
+Asia;Eastern Asia;Korea, DPR;4,78
+Africa;Southern Africa;Malawi;3,83
+Asia;South-Eastern Asia;Myanmar;7,59
+Asia;Southern Asia;Nepal;6,16
+Africa;East Africa;Tanzania;6,15
+Americas;South America;Ecuador;6,25
+Africa;North Africa;Egypt;5,16
+Americas;Central America;Costa Rica;4,99
+Africa;West Africa;Togo;5,33
+Asia;Western Asia;Bahrain;4,83
+Africa;East Africa;Uganda;6,14
+Asia;Central Asia and the Caucasus;Uzbekistan;4,96
+Asia;South-Eastern Asia;Vietnam;6,28
+Asia;South-Eastern Asia;Thailand;5,76
+Americas;Central America;Panama;6,68
+Asia;Western Asia;United Arab Emirates;5,75
+Americas;Central America;Nicaragua;6,06
+Asia;Western Asia;Kuwait;5,14
+Africa;Southern Africa;Lesotho;3,90
+Africa;West Africa;Burkina Faso;5,49
+Americas;Caribbean;Haiti;5,73
+Asia;Central Asia and the Caucasus;Azerbaijan;5,08
+Asia;South-Eastern Asia;Malaysia;5,94
+Africa;West Africa;Benin;5,25
+Oceania;Melanesia;Papua New Guinea;5,44
+Asia;Western Asia;Oman;4,14
+Asia;Southern Asia;Pakistan;6,28
+Africa;West Africa;Sierra Leone;5,40
+Europe;Western Europe;France;5,66
+Europe;Western Europe;Netherlands;4,69
+Asia;Central Asia and the Caucasus;Kyrgyzstan;5,33
+Europe;Western Europe;Andorra;2,96
+Africa;Southern Africa;Madagascar;5,59
+Asia;Western Asia;Israel;4,41
+Europe;Western Europe;Belgium;4,34
+Asia;Western Asia;Qatar;5,21
+Americas;Central America;Honduras;6,98
+Africa;Southern Africa;Mozambique;6,53
+Europe;Western Europe;Germany;4,90
+Europe;Western Europe;United Kingdom;4,89
+Europe;Western Europe;Austria;4,04
+Africa;Central Africa;Congo, Rep.;5,03
+Asia;Western Asia;Lebanon;6,76
+Europe;Western Europe;Liechtenstein;1,88
+Asia;Eastern Asia;China;6,01
+Asia;Southern Asia;Bhutan;3,69
+Europe;Western Europe;Luxembourg;2,36
+Americas;North America;United States;5,50
+Asia;Central Asia and the Caucasus;Kazakhstan;4,26
+Americas;Caribbean ;Dominican Republic;5,15
+Africa;Southern Africa;Eswatini;3,63
+Europe;Southern Europe;Italy;5,81
+Africa;West Africa;Niger;6,01
+Europe;Southern Europe;Malta;4,65
+Africa;Southern Africa;Zimbabwe;5,66
+Africa;West Africa;Liberia;5,05
+Asia;Eastern Asia;Mongolia;4,01
+Africa;Central Africa;Gabon;4,90
+Europe;Southern Europe;Portugal;4,55
+Europe;Southern Europe;Greece;4,93
+Americas;Caribbean ;Cuba;3,44
+Africa;Central Africa;Cameroon;6,31
+Africa;North Africa;Mauritania;4,38
+Africa;East Africa;Sudan;6,46
+Africa;West Africa;Guinea;5,20
+Americas;South America;Paraguay;6,70
+Asia;Southern Asia;Bangladesh;4,98
+Asia;Central Asia and the Caucasus;Armenia;3,26
+Europe;Southern Europe;Spain;5,78
+Europe;Southern Europe;Cyprus;4,19
+Europe;Southern Europe;Monaco;2,43
+Africa;Central Africa;Chad;5,86
+Oceania;Micronesia;Nauru;1,76
+Europe;Southern Europe;San Marino;3,01
+Africa;West Africa;Guinea-Bissau;5,45
+Asia;Eastern Asia;Japan;4,53
+Europe;Northern Europe;Norway;3,81
+Americas;Central America;Belize;4,64
+Africa;West Africa;Mali;5,89
+Asia;Southern Asia;Sri Lanka;4,64
+Europe;Northern Europe;Estonia;3,60
+Europe;Northern Europe;Sweden;4,56
+Asia;Central Asia and the Caucasus;Georgia;2,96
+Europe;Northern Europe;Denmark;3,86
+Americas;South America;Argentina;4,38
+Europe;Northern Europe;Latvia;3,51
+Europe;Northern Europe;Lithuania;3,31
+Americas;North America;Canada;3,66
+Europe;Northern Europe;Finland;2,71
+Americas;Caribbean ;Grenada;3,05
+Europe;Northern Europe;Iceland;3,39
+Africa;Southern Africa;Comoros;3,86
+Europe;Central & Eastern Europe;Ukraine;6,18
+Oceania;Melanesia;Solomon Islands;4,15
+Americas;Central America;Guatemala;6,48
+Europe;Central & Eastern Europe;Albania;5,63
+Europe;Central & Eastern Europe;Poland;4,01
+Oceania;Melanesia;Kiribati;2,35
+Europe;Central & Eastern Europe;Russia;6,24
+Asia;South-Eastern Asia;Timor-Leste;3,96
+Africa;East Africa;Eritrea;4,34
+Asia;Eastern Asia;Korea, Rep.;4,91
+Americas;South America;Chile;4,60
+Oceania;Melanesia;Fiji;3,90
+Americas;Caribbean ;Bahamas;3,79
+Asia;South-Eastern Asia;Brunei;2,76
+Europe;Central & Eastern Europe;Bulgaria;5,43
+Africa;Central Africa;Congo, Dem. Rep.;7,75
+Oceania;Australia and New Zealand;Australia;4,00
+Europe;Central & Eastern Europe;Belarus;5,08
+Oceania;Polynesia;Tonga;3,78
+Europe;Central & Eastern Europe;Croatia;5,06
+Europe;Central & Eastern Europe;Romania;4,59
+Africa;Central Africa;Equatorial Guinea;4,11
+Europe;Central & Eastern Europe;Serbia;6,21
+Oceania;Polynesia;Samoa;2,04
+Americas;Caribbean ;St. Kitts and Nevis;4,10
+Europe;Central & Eastern Europe;Hungary;4,50
+Europe;Central & Eastern Europe;Montenegro;6,00
+Americas;Caribbean ;Trinidad and Tobago;4,94
+Europe;Central & Eastern Europe;Czech Republic;4,63
+Americas;Caribbean ;Barbados;3,21
+Asia;South-Eastern Asia;Laos;5,51
+Oceania;Micronesia;Palau;2,94
+Americas;Central America;El Salvador;5,94
+Oceania;Melanesia;Vanuatu;2,20
+Asia;South-Eastern Asia;Singapore;3,13
+Asia;Western Asia;Jordan;4,71
+Oceania;Australia and New Zealand;New Zealand;3,25
+Americas;Caribbean ;Antigua and Barbuda;3,34
+Europe;Central & Eastern Europe;Bosnia and Herzegovina;5,89
+Europe;Central & Eastern Europe;North Macedonia;5,31
+Europe;Central & Eastern Europe;Slovakia;4,69
+Europe;Central & Eastern Europe;Moldova;4,45
+Oceania;Micronesia;Marshall Islands;2,31
+Oceania;Micronesia;Micronesia (Federated States of);3,30
+Africa;Central Africa;Burundi;4,51
+Africa;Central Africa;Central African Republic;7,04
+Oceania;Polynesia;Tuvalu;1,54
+Asia;Southern Asia;Maldives;4,06
+Africa;East Africa;South Sudan;6,34
+Africa;East Africa;Somalia;5,79
+Americas;South America;Uruguay;2,69
+Africa;North Africa;Libya;6,55
+Americas;Caribbean ;Jamaica;5,91
+Americas;Caribbean ;St. Vincent and the Grenadines;3,30
+Europe;Central & Eastern Europe;Slovenia;4,29
+Americas;Caribbean ;St. Lucia;4,09
+Americas;Caribbean ;Dominica;2,63

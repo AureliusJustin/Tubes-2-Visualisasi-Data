@@ -27,20 +27,53 @@ st.set_page_config(
 # Custom CSS for better styling
 st.markdown("""
 <style>
+    .stApp {
+        background-color: #31393e;
+    }
     .main > div {
         padding-top: 2rem;
+        background-color: #31393e;
     }
     .stMetric {
-        background-color: #f0f2f6;
+        background-color: #25262d;
         padding: 1rem;
         border-radius: 0.5rem;
-        border: 1px solid #e1e5e9;
     }
-    .plot-container {
-        background-color: white;
+    
+    /* Chart containers - single container approach */
+    div[data-testid="stPlotlyChart"] {
+        background-color: #25262d;
+        border-radius: 0.75rem;
+        margin: 1rem 0;
+        padding: 0.75rem;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        overflow: hidden;
+    }
+    
+    /* Remove extra styling from plotly elements to prevent double containers */
+    .js-plotly-plot, .plotly {
+        background-color: transparent !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+    }
+    
+    /* Folium map containers */
+    .stFolium {
+        background-color: #25262d;
+        border-radius: 0.75rem;
+        overflow: hidden;
+        margin: 1rem 0;
         padding: 1rem;
-        border-radius: 0.5rem;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    /* Additional styling for map iframe */
+    .stFolium iframe {
+        border-radius: 0.75rem;
+    }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -61,6 +94,10 @@ def load_and_process_data():
         df_tindak_pidana_2018_2020 = pd.read_csv("dataset/Risiko Penduduk Terkena Tindak Pidana (Per 100.000 Penduduk) , 2018-2020.csv")
         df_tindak_pidana_2015_2017 = pd.read_csv("dataset/Risiko Penduduk Terkena Tindak Pidana (Per 100.000 Penduduk) , 2015-2017.csv")
         df_tindak_pidana_2012_2014 = pd.read_csv("dataset/Risiko Penduduk Terkena Tindak Pidana (Per 100.000 Penduduk) , 2012-2014.csv")
+        
+        # Load OC Index data for global crime rankings
+        df_oc_index_2023 = pd.read_csv("dataset/oc_index_2023.csv", sep=';')
+        df_oc_index_2021 = pd.read_csv("dataset/oc_index_2021.csv", sep=';')
         
     except FileNotFoundError as e:
         st.error(f"File not found: {e}")
@@ -355,7 +392,11 @@ def create_bubble_chart(df, x_col, y_col, size_col, color_col=None, title="Bubbl
     fig.update_layout(
         height=600,
         showlegend=True,
-        hovermode='closest'
+        hovermode='closest',
+        plot_bgcolor='#25262d',
+        paper_bgcolor='#25262d',
+        font_color='white',
+        margin=dict(l=20, r=20, t=40, b=20)
     )
     return fig
 
@@ -375,7 +416,13 @@ def create_correlation_heatmap(df):
             color_continuous_scale="RdBu"
         )
         
-        fig.update_layout(height=600)
+        fig.update_layout(
+            height=600,
+            plot_bgcolor='#25262d',
+            paper_bgcolor='#25262d',
+            font_color='white',
+            margin=dict(l=20, r=20, t=40, b=20)
+        )
         return fig
     return None
 
@@ -410,7 +457,11 @@ def create_trend_chart(df_time_series):
                     fig.update_layout(
                         height=400,
                         xaxis_title="Year",
-                        yaxis_title="Crime Rate (per 100,000 population)"
+                        yaxis_title="Crime Rate (per 100,000 population)",
+                        plot_bgcolor='#25262d',
+                        paper_bgcolor='#25262d',
+                        font_color='white',
+                        margin=dict(l=20, r=20, t=40, b=20)
                     )
                     
                     return fig
@@ -614,32 +665,132 @@ def create_choropleth_map(df, metric, geojson_data, province_mapping, region_fil
 
 # --- Visualization Components Modularization ---
 
-def render_key_metrics(df_filtered, selected_province):
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        if 'Jumlah Penduduk' in df_filtered.columns:
-            if selected_province != 'All' and len(df_filtered) > 0:
-                total_pop = df_filtered['Jumlah Penduduk'].iloc[0] if len(df_filtered) > 0 else 0
-                st.metric("Population (thousands)", f"{total_pop:,.0f}")
+def render_key_metrics(df_filtered, selected_province, oc_data=None):
+    st.subheader("🇮🇩 Indonesia Global Crime Rankings")
+    
+    if oc_data and oc_data['indonesia_2023'] is not None:
+        indonesia_2023 = oc_data['indonesia_2023']
+        indonesia_2021 = oc_data['indonesia_2021']
+        
+        # Crime Rate from OC Index
+        crime_rate_2023 = indonesia_2023['Criminality']
+        crime_rate_2021 = indonesia_2021['Criminality'] if indonesia_2021 is not None else None
+        
+        if crime_rate_2021 is not None:
+            crime_rate_change = crime_rate_2023 - crime_rate_2021  # Positive = worse (crime increased), Negative = better (crime decreased)
+            if abs(crime_rate_change) >= 0.01:  # Only show change if significant (>= 0.01)
+                st.metric(
+                    "Crime Rate (OC Index)", 
+                    f"{crime_rate_2023:.2f}",
+                    delta=f"{crime_rate_change:+.2f} from 2021",
+                    delta_color="inverse",  # inverse because higher crime rate is worse
+                    help="Organized Crime Index Score (0-10, higher = worse)"
+                )
             else:
-                pop_data = df_filtered[df_filtered['Provinsi'] != "INDONESIA"] if 'INDONESIA' in df_filtered['Provinsi'].values else df_filtered
-                total_pop = pop_data['Jumlah Penduduk'].sum() if len(pop_data) > 0 else 0
-                st.metric("Total Population (thousands)", f"{total_pop:,.0f}")
-    with col2:
-        if 'Tindak Pidana 2023' in df_filtered.columns:
-            crime_data = df_filtered[df_filtered['Provinsi'] != "INDONESIA"] if 'INDONESIA' in df_filtered['Provinsi'].values else df_filtered
-            avg_crime = crime_data['Tindak Pidana 2023'].mean() if len(crime_data) > 0 else 0
-            st.metric("Avg Crime Rate", f"{avg_crime:.1f}")
-    with col3:
-        if 'gini_ratio_2023' in df_filtered.columns:
-            gini_data = df_filtered[df_filtered['Provinsi'] != "INDONESIA"] if 'INDONESIA' in df_filtered['Provinsi'].values else df_filtered
-            avg_gini = gini_data['gini_ratio_2023'].mean() if len(gini_data) > 0 else 0
-            st.metric("Avg Gini Ratio", f"{avg_gini:.3f}")
-    with col4:
-        if 'Pendidikan Terakhir SMA/PT' in df_filtered.columns:
-            edu_data = df_filtered[df_filtered['Provinsi'] != "INDONESIA"] if 'INDONESIA' in df_filtered['Provinsi'].values else df_filtered
-            avg_education = edu_data['Pendidikan Terakhir SMA/PT'].mean() if len(edu_data) > 0 else 0
-            st.metric("Avg Higher Education %", f"{avg_education:.1f}%")
+                st.metric(
+                    "Crime Rate (OC Index)", 
+                    f"{crime_rate_2023:.2f}",
+                    delta="Same as 2021",
+                    delta_color="off",
+                    help="Organized Crime Index Score (0-10, higher = worse)"
+                )
+        else:
+            st.metric(
+                "Crime Rate (OC Index)", 
+                f"{crime_rate_2023:.2f}",
+                help="Organized Crime Index Score (0-10, higher = worse)"
+            )
+        
+        # World Rank
+        world_rank_2023 = int(indonesia_2023['World_Rank'])
+        world_rank_2021 = int(indonesia_2021['World_Rank']) if indonesia_2021 is not None else None
+        
+        if world_rank_2021 is not None:
+            rank_change = -(world_rank_2023 - world_rank_2021)  # Positive = worse (rank increased), Negative = better (rank decreased)
+            if rank_change != 0:
+                st.metric(
+                    "World Rank", 
+                    f"#{world_rank_2023}",
+                    delta=f"{rank_change:+d} from 2021",
+                    delta_color="inverse",  # inverse because lower rank is better
+                    help="Global ranking among all countries (Lower Rank = Better)"
+                )
+            else:
+                st.metric(
+                    "World Rank", 
+                    f"#{world_rank_2023}",
+                    delta="Same as 2021",
+                    delta_color="off",
+                    help="Global ranking among all countries (Lower Rank = Better)"
+                )
+        else:
+            st.metric(
+                "World Rank", 
+                f"#{world_rank_2023}",
+                help="Global ranking among all countries (Lower Rank = Better)"
+            )
+        
+        # Asia Rank
+        asia_rank_2023 = int(indonesia_2023['Asia_Rank']) if pd.notna(indonesia_2023['Asia_Rank']) else None
+        asia_rank_2021 = int(indonesia_2021['Asia_Rank']) if indonesia_2021 is not None and pd.notna(indonesia_2021['Asia_Rank']) else None
+        
+        if asia_rank_2023 is not None:
+            if asia_rank_2021 is not None:
+                asia_change = asia_rank_2023 - asia_rank_2021  # Positive = worse (rank increased), Negative = better (rank decreased)
+                if asia_change != 0:
+                    st.metric(
+                        "Asia Rank", 
+                        f"#{asia_rank_2023}",
+                        delta=f"{asia_change:+d} from 2021",
+                        delta_color="inverse",  # inverse because lower rank is better
+                        help="Ranking among Asian countries (Lower Rank = Better)"
+                    )
+                else:
+                    st.metric(
+                        "Asia Rank", 
+                        f"#{asia_rank_2023}",
+                        delta="Same as 2021",
+                        delta_color="off",
+                        help="Ranking among Asian countries (Lower Rank = Better)"
+                    )
+            else:
+                st.metric(
+                    "Asia Rank", 
+                    f"#{asia_rank_2023}",
+                    help="Ranking among Asian countries (Lower Rank = Better)"
+                )
+        
+        # ASEAN Rank
+        asean_rank_2023 = int(indonesia_2023['ASEAN_Rank']) if pd.notna(indonesia_2023['ASEAN_Rank']) else None
+        asean_rank_2021 = int(indonesia_2021['ASEAN_Rank']) if indonesia_2021 is not None and pd.notna(indonesia_2021['ASEAN_Rank']) else None
+        
+        if asean_rank_2023 is not None:
+            if asean_rank_2021 is not None:
+                asean_change = asean_rank_2023 - asean_rank_2021  # Positive = worse (rank increased), Negative = better (rank decreased)
+                if asean_change != 0:
+                    st.metric(
+                        "ASEAN Rank", 
+                        f"#{asean_rank_2023}",
+                        delta=f"{asean_change:+d} from 2021",
+                        delta_color="inverse",  # inverse because lower rank is better
+                        help="Ranking among ASEAN countries (Lower Rank = Better)"
+                    )
+                else:
+                    st.metric(
+                        "ASEAN Rank", 
+                        f"#{asean_rank_2023}",
+                        delta="Same as 2021",
+                        delta_color="off",
+                        help="Ranking among ASEAN countries (Lower Rank = Better)"
+                    )
+            else:
+                st.metric(
+                    "ASEAN Rank", 
+                    f"#{asean_rank_2023}",
+                    help="Ranking among ASEAN countries (Lower Rank = Better)"
+                )
+    else:
+        st.warning("OC Index data not available")
 
 def render_bubble_and_relationship(df_filtered, selected_region, selected_province):
     st.subheader("Socioeconomic Relationships")
@@ -674,6 +825,12 @@ def render_bubble_and_relationship(df_filtered, selected_region, selected_provin
                     title="Education vs Crime Rate",
                     trendline="ols"
                 )
+                fig1.update_layout(
+                    plot_bgcolor='#25262d',
+                    paper_bgcolor='#25262d',
+                    font_color='white',
+                    margin=dict(l=20, r=20, t=40, b=20)
+                )
                 st.plotly_chart(fig1, use_container_width=True)
         with col2:
             if 'gini_ratio_2023' in df_filtered.columns and 'Tindak Pidana 2023' in df_filtered.columns:
@@ -686,6 +843,12 @@ def render_bubble_and_relationship(df_filtered, selected_region, selected_provin
                     hover_name='Provinsi',
                     title="Income Inequality vs Crime Rate",
                     trendline="ols"
+                )
+                fig2.update_layout(
+                    plot_bgcolor='#25262d',
+                    paper_bgcolor='#25262d',
+                    font_color='white',
+                    margin=dict(l=20, r=20, t=40, b=20)
                 )
                 st.plotly_chart(fig2, use_container_width=True)
 
@@ -727,6 +890,12 @@ def render_trend_tab(df_time_series, df_filtered):
                 )
                 fig_trend.update_xaxes(dtick=1, tickformat="d")
                 fig_trend.update_yaxes(title_text="Crime Rate")
+                fig_trend.update_layout(
+                    plot_bgcolor='#25262d',
+                    paper_bgcolor='#25262d',
+                    font_color='white',
+                    margin=dict(l=20, r=20, t=40, b=20)
+                )
                 st.plotly_chart(fig_trend, use_container_width=True)
 
 def render_regional_tab(df_filtered, selected_region, selected_province):
@@ -741,6 +910,12 @@ def render_regional_tab(df_filtered, selected_region, selected_province):
                 y=regional_stats['Tindak Pidana 2023'],
                 title="Average Crime Rate by Region (2023)",
                 labels={'x': 'Region', 'y': 'Crime Rate'}
+            )
+            fig_regional.update_layout(
+                plot_bgcolor='#25262d',
+                paper_bgcolor='#25262d',
+                font_color='white',
+                margin=dict(l=20, r=20, t=40, b=20)
             )
             st.plotly_chart(fig_regional, use_container_width=True)
     st.markdown("---")
@@ -781,13 +956,81 @@ def render_provincial_data_table(df_filtered):
     df_display.index = df_display.index + 1
     st.dataframe(df_display, use_container_width=True)
 
+@st.cache_data
+def load_oc_index_data():
+    """Load and process OC Index data for global crime rankings"""
+    try:
+        # Load OC Index data
+        df_oc_2023 = pd.read_csv("dataset/oc_index_2023.csv", sep=';')
+        df_oc_2021 = pd.read_csv("dataset/oc_index_2021.csv", sep=';')
+        
+        # Clean criminality column - replace comma with dot for proper float conversion
+        df_oc_2023['Criminality'] = df_oc_2023['Criminality'].astype(str).str.replace(',', '.').astype(float)
+        df_oc_2021['Criminality'] = df_oc_2021['Criminality'].astype(str).str.replace(',', '.').astype(float)
+        
+        # Sort by criminality (higher = worse ranking)
+        df_oc_2023_sorted = df_oc_2023.sort_values('Criminality', ascending=False).reset_index(drop=True)
+        df_oc_2021_sorted = df_oc_2021.sort_values('Criminality', ascending=False).reset_index(drop=True)
+        
+        # Add rank columns (1 = highest criminality/worst)
+        df_oc_2023_sorted['World_Rank'] = df_oc_2023_sorted.index + 1
+        df_oc_2021_sorted['World_Rank'] = df_oc_2021_sorted.index + 1
+        
+        # Calculate Asia rankings
+        asia_2023 = df_oc_2023_sorted[df_oc_2023_sorted['Continent'] == 'Asia'].reset_index(drop=True)
+        asia_2023['Asia_Rank'] = asia_2023.index + 1
+        
+        asia_2021 = df_oc_2021_sorted[df_oc_2021_sorted['Continent'] == 'Asia'].reset_index(drop=True)
+        asia_2021['Asia_Rank'] = asia_2021.index + 1
+        
+        # Calculate ASEAN rankings (Indonesia's region)
+        asean_countries = ['Indonesia', 'Malaysia', 'Thailand', 'Vietnam', 'Philippines', 
+                          'Singapore', 'Myanmar', 'Cambodia', 'Laos', 'Brunei', 'Timor-Leste']
+        
+        asean_2023 = df_oc_2023_sorted[df_oc_2023_sorted['Country'].isin(asean_countries)].reset_index(drop=True)
+        asean_2023['ASEAN_Rank'] = asean_2023.index + 1
+        
+        asean_2021 = df_oc_2021_sorted[df_oc_2021_sorted['Country'].isin(asean_countries)].reset_index(drop=True)
+        asean_2021['ASEAN_Rank'] = asean_2021.index + 1
+        
+        # Merge Asia rankings back to main dataframes
+        df_oc_2023_sorted = df_oc_2023_sorted.merge(
+            asia_2023[['Country', 'Asia_Rank']], on='Country', how='left'
+        )
+        df_oc_2021_sorted = df_oc_2021_sorted.merge(
+            asia_2021[['Country', 'Asia_Rank']], on='Country', how='left'
+        )
+        
+        # Merge ASEAN rankings back to main dataframes
+        df_oc_2023_sorted = df_oc_2023_sorted.merge(
+            asean_2023[['Country', 'ASEAN_Rank']], on='Country', how='left'
+        )
+        df_oc_2021_sorted = df_oc_2021_sorted.merge(
+            asean_2021[['Country', 'ASEAN_Rank']], on='Country', how='left'
+        )
+        
+        # Get Indonesia data
+        indonesia_2023 = df_oc_2023_sorted[df_oc_2023_sorted['Country'] == 'Indonesia'].iloc[0] if len(df_oc_2023_sorted[df_oc_2023_sorted['Country'] == 'Indonesia']) > 0 else None
+        indonesia_2021 = df_oc_2021_sorted[df_oc_2021_sorted['Country'] == 'Indonesia'].iloc[0] if len(df_oc_2021_sorted[df_oc_2021_sorted['Country'] == 'Indonesia']) > 0 else None
+        
+        return {
+            'indonesia_2023': indonesia_2023,
+            'indonesia_2021': indonesia_2021,
+            'df_2023': df_oc_2023_sorted,
+            'df_2021': df_oc_2021_sorted
+        }
+    except Exception as e:
+        st.error(f"Error loading OC Index data: {e}")
+        return None
+
 def main():
-    st.title("🇮🇩 Indonesia Socioeconomic Dashboard")
-    st.markdown("### Interactive Analysis of Provincial Data (2023)")
+    # st.title("🇮🇩 Indonesia Socioeconomic Dashboard")
+    # st.markdown("### Interactive Analysis of Provincial Data (2023)")
     
     # Load data
     with st.spinner("Loading and processing data..."):
         df_main, df_time_series = load_and_process_data()
+        oc_data = load_oc_index_data()
     
     if df_main is None or df_main.empty:
         st.error("Failed to load data. Please check your dataset files.")
@@ -798,7 +1041,7 @@ def main():
         df_main = df_main[df_main['Provinsi'] != 'INDONESIA']
     
     # Sidebar for filters and controls
-    st.sidebar.header("Dashboard Controls")
+    st.sidebar.header("Indonesia Criminality")
     
     # Initialize filter variables
     selected_region = 'All'
@@ -837,18 +1080,29 @@ def main():
     num_provinces = len(df_filtered['Provinsi'].unique()) if 'Provinsi' in df_filtered.columns else 0
     st.sidebar.write(f"📊 **Provinces shown:** {num_provinces}")
     
-    # Main dashboard layout
-    render_key_metrics(df_filtered, selected_province)
-    st.markdown("---")
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 Main Analysis", "🔗 Correlations", "📈 Trends", "🗺️ Regional View"])
-    with tab1:
-        render_bubble_and_relationship(df_filtered, selected_region, selected_province)
-    with tab2:
-        render_correlation_tab(df_filtered)
-    with tab3:
-        render_trend_tab(df_time_series, df_filtered)
-    with tab4:
-        render_regional_tab(df_filtered, selected_region, selected_province)
+    # Create main layout with metrics column and content column
+    metrics_col, content_col = st.columns([1, 4])
+    
+    # Key metrics in the left column (next to sidebar)
+    with metrics_col:
+        render_key_metrics(df_filtered, selected_province, oc_data)
+    
+    # Main dashboard content in the right column
+    with content_col:
+        tab1, tab2, tab3, tab4 = st.tabs(["📊 Main Analysis", "🔗 Correlations", "📈 Trends", "🗺️ Regional View"])
+        
+        with tab1:
+            render_bubble_and_relationship(df_filtered, selected_region, selected_province)
+        
+        with tab2:
+            render_correlation_tab(df_filtered)
+        
+        with tab3:
+            render_trend_tab(df_time_series, df_filtered)
+        
+        with tab4:
+            render_regional_tab(df_filtered, selected_region, selected_province)
+    
     st.markdown("---")
     render_provincial_data_table(df_filtered)
 
