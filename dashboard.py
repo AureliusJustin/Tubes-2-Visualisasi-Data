@@ -567,7 +567,7 @@ def create_regional_comparison(df):
     return None
 
 def create_choropleth_map(df, metric, geojson_data, province_mapping, region_filter=None, province_filter=None):
-    """Create a choropleth map using folium, strictly restricted to Indonesia bounds and zoom, and highlight only selected region/province if filtered"""
+    """Create a choropleth map using folium, with dynamic zoom to provinces/regions when filtered"""
     # Prepare data based on selected metric
     if metric == 'Crime Rate 2023':
         map_data = df[['Provinsi', 'Tindak Pidana 2023', 'Region']].dropna(subset=['Provinsi'])
@@ -596,23 +596,88 @@ def create_choropleth_map(df, metric, geojson_data, province_mapping, region_fil
 
     reverse_mapping = {v: k for k, v in province_mapping.items()}
 
-    # Debug output
-    # print(f"[DEBUG] map_data rows: {len(map_data)}")
-    # print(f"[DEBUG] map_data Provinsi unique: {map_data['Provinsi'].unique()}")
-    # print(f"[DEBUG] reverse_mapping keys: {list(reverse_mapping.keys())}")
+    # Calculate map bounds and zoom based on filter
+    def get_bounds_for_features(features):
+        """Calculate bounds for a list of GeoJSON features"""
+        if not features:
+            return None
+        
+        all_coords = []
+        for feature in features:
+            geom = feature['geometry']
+            if geom['type'] == 'Polygon':
+                coords = geom['coordinates'][0]
+                all_coords.extend(coords)
+            elif geom['type'] == 'MultiPolygon':
+                for polygon in geom['coordinates']:
+                    coords = polygon[0]
+                    all_coords.extend(coords)
+        
+        if not all_coords:
+            return None
+            
+        lngs = [coord[0] for coord in all_coords]
+        lats = [coord[1] for coord in all_coords]
+        
+        return {
+            'min_lat': min(lats),
+            'max_lat': max(lats),
+            'min_lng': min(lngs),
+            'max_lng': max(lngs)
+        }
 
+    # Determine map center, zoom, and bounds based on filters
     indonesia_sw = [-11.0, 94.0]
     indonesia_ne = [6.0, 141.0]
+    map_center = [-2.5, 118.0]
+    zoom_level = 4
+    map_bounds = [[indonesia_sw[0], indonesia_sw[1]], [indonesia_ne[0], indonesia_ne[1]]]
+    
+    if province_filter and province_filter != 'All':
+        # Find the specific province in geojson
+        province_geojson_name = reverse_mapping.get(province_filter)
+        if province_geojson_name:
+            province_features = [f for f in geojson_data['features'] 
+                               if f['properties']['Propinsi'] == province_geojson_name]
+            if province_features:
+                bounds = get_bounds_for_features(province_features)
+                if bounds:
+                    map_center = [(bounds['min_lat'] + bounds['max_lat']) / 2, 
+                                 (bounds['min_lng'] + bounds['max_lng']) / 2]
+                    zoom_level = 7
+                    # Add padding to bounds
+                    padding = 0.5
+                    map_bounds = [[bounds['min_lat'] - padding, bounds['min_lng'] - padding],
+                                 [bounds['max_lat'] + padding, bounds['max_lng'] + padding]]
+    
+    elif region_filter and region_filter != 'All':
+        # Find all provinces in the region
+        region_provinces = map_data[map_data['Region'] == region_filter]['Provinsi'].unique()
+        region_geojson_names = [reverse_mapping.get(prov) for prov in region_provinces if reverse_mapping.get(prov)]
+        
+        if region_geojson_names:
+            region_features = [f for f in geojson_data['features'] 
+                             if f['properties']['Propinsi'] in region_geojson_names]
+            if region_features:
+                bounds = get_bounds_for_features(region_features)
+                if bounds:
+                    map_center = [(bounds['min_lat'] + bounds['max_lat']) / 2, 
+                                 (bounds['min_lng'] + bounds['max_lng']) / 2]
+                    zoom_level = 6
+                    # Add padding to bounds
+                    padding = 1.0
+                    map_bounds = [[bounds['min_lat'] - padding, bounds['min_lng'] - padding],
+                                 [bounds['max_lat'] + padding, bounds['max_lng'] + padding]]
 
-    # Create map with zooming disabled and fixed to Indonesia
+    # Create map with dynamic center and zoom
     m = folium.Map(
-        location=[-2.5, 118.0],
-        zoom_start=4,
+        location=map_center,
+        zoom_start=zoom_level,
         tiles=None,
         min_zoom=4,
-        max_zoom=8,
-        zoom_control=False,
-        scrollWheelZoom=False,
+        max_zoom=10,
+        zoom_control=True,
+        scrollWheelZoom=True,
         doubleClickZoom=True,
         prefer_canvas=True,
         attributionControl=True
@@ -770,7 +835,7 @@ def create_choropleth_map(df, metric, geojson_data, province_mapping, region_fil
     """
     m.get_root().html.add_child(folium.Element(custom_css))
 
-    # Add JavaScript to properly configure the map and fix zoom controls
+    # Add JavaScript to properly configure the map with dynamic bounds
     map_config_js = f'''
         <script>
         // Wait for map to be ready
@@ -780,26 +845,22 @@ def create_choropleth_map(df, metric, geojson_data, province_mapping, region_fil
                 if (mapContainer && window[mapContainer.id]) {{
                     var map = window[mapContainer.id];
                     
-                    // Set strict bounds and disable all zoom functionality
-                    var bounds = [[{indonesia_sw[0]}, {indonesia_sw[1]}], [{indonesia_ne[0]}, {indonesia_ne[1]}]];
+                    // Set bounds based on filter
+                    var bounds = [[{map_bounds[0][0]}, {map_bounds[0][1]}], [{map_bounds[1][0]}, {map_bounds[1][1]}]];
                     map.setMaxBounds(bounds);
                     
-                    // Lock zoom level to 5
-                    map.setZoom(5);
-                    map.setMinZoom(5);
-                    map.setMaxZoom(5);
+                    // Set zoom level and limits based on filter
+                    map.setZoom({zoom_level});
+                    map.setMinZoom({max(4, zoom_level - 2)});
+                    map.setMaxZoom({zoom_level + 3});
                     
-                    // Disable all zoom controls and interactions
-                    map.scrollWheelZoom.disable();
-                    map.doubleClickZoom.disable();
-                    map.touchZoom.disable();
+                    // Enable appropriate controls based on filter
+                    {"// Province/region filtered - enable some zoom controls" if (province_filter and province_filter != 'All') or (region_filter and region_filter != 'All') else "// All Indonesia - disable zoom controls"}
+                    {"map.scrollWheelZoom.enable();" if (province_filter and province_filter != 'All') or (region_filter and region_filter != 'All') else "map.scrollWheelZoom.disable();"}
+                    {"map.doubleClickZoom.enable();" if (province_filter and province_filter != 'All') or (region_filter and region_filter != 'All') else "map.doubleClickZoom.disable();"}
+                    map.touchZoom.{"enable" if (province_filter and province_filter != 'All') or (region_filter and region_filter != 'All') else "disable"}();
                     map.boxZoom.disable();
                     map.keyboard.disable();
-                    
-                    // Remove zoom control if it exists
-                    if (map.zoomControl) {{
-                        map.zoomControl.remove();
-                    }}
                     
                     // Force dark background
                     var container = map.getContainer();
@@ -813,10 +874,14 @@ def create_choropleth_map(df, metric, geojson_data, province_mapping, region_fil
                         map.panInsideBounds(bounds, {{animate: false}});
                     }});
                     
-                    // Disable zoom on any zoom attempt
-                    map.on('zoomstart', function(e) {{
-                        e.preventDefault();
-                        map.setZoom(5);
+                    // Control zoom limits
+                    map.on('zoom', function(e) {{
+                        var currentZoom = map.getZoom();
+                        if (currentZoom < {max(4, zoom_level - 2)}) {{
+                            map.setZoom({max(4, zoom_level - 2)});
+                        }} else if (currentZoom > {zoom_level + 3}) {{
+                            map.setZoom({zoom_level + 3});
+                        }}
                     }});
                     
                     // Ultra-aggressive legend styling for white text
@@ -922,9 +987,16 @@ def create_choropleth_map(df, metric, geojson_data, province_mapping, region_fil
     '''
     m.get_root().html.add_child(Element(map_config_js))
     
-    # Add large dark background rectangle to cover entire visible area
+    # Add dark background rectangle to cover visible area
+    # Adjust background size based on zoom level
+    bg_padding = 5.0 if zoom_level <= 5 else 2.0
+    background_bounds = [
+        [map_bounds[0][0] - bg_padding, map_bounds[0][1] - bg_padding],
+        [map_bounds[1][0] + bg_padding, map_bounds[1][1] + bg_padding]
+    ]
+    
     folium.Rectangle(
-        bounds=[[-20.0, 80.0], [15.0, 150.0]],  # Very large bounds to cover all visible area
+        bounds=background_bounds,
         color="#25262d",
         fill=True,
         fillColor="#25262d",
@@ -1129,7 +1201,7 @@ def create_choropleth_map(df, metric, geojson_data, province_mapping, region_fil
 
 # --- Visualization Components Modularization ---
 
-def render_key_metrics(df_filtered, selected_province, oc_data=None):
+def render_key_metrics(df_filtered, selected_province, oc_data=None, selected_region=None, df_main=None):
     # Add CSS to make the metrics column fill available height
     st.markdown("""
     <style>
@@ -1143,7 +1215,13 @@ def render_key_metrics(df_filtered, selected_province, oc_data=None):
     </style>
     """, unsafe_allow_html=True)
     
-    if oc_data and oc_data['indonesia_2023'] is not None:
+    # Check if province or region filter is active
+    is_filtered = selected_province != 'All' or selected_region != 'All'
+    
+    if is_filtered and df_main is not None:
+        # Show provincial/regional data instead of OC Index
+        render_provincial_metrics(df_filtered, selected_province, selected_region, df_main)
+    elif oc_data and oc_data['indonesia_2023'] is not None:
         indonesia_2023 = oc_data['indonesia_2023']
         indonesia_2021 = oc_data['indonesia_2021']
         
@@ -1342,12 +1420,49 @@ def load_oc_index_data():
         st.error(f"Error loading OC Index data: {e}")
         return None
 
-def create_crime_trend_2012_2023(df_time_series):
-    """Create Indonesia crime rate trend chart for 2012-2023"""
+def create_crime_trend_2012_2023(df_time_series, selected_province='All', selected_region='All'):
+    """Create crime rate trend chart for 2012-2023 with filtering support"""
     if df_time_series is None or df_time_series.empty:
         return None
     
-    # Calculate national average for each year
+    # Determine what data to show based on filters
+    if selected_province != 'All':
+        # Show specific province trend
+        title = f"{selected_province} Crime Rate Trend (2016-2023)"
+        df_to_analyze = df_time_series[df_time_series['Provinsi'] == selected_province]
+        line_name = selected_province
+        line_color = '#ff6b6b'
+    elif selected_region != 'All':
+        # Show regional average trend
+        title = f"{selected_region} Region Crime Rate Trend (2016-2023)"
+        # Filter time series data by region (need to add region mapping)
+        region_mapping = {
+            "ACEH": "Sumatra", "SUMATERA UTARA": "Sumatra", "SUMATERA BARAT": "Sumatra",
+            "RIAU": "Sumatra", "KEPULAUAN RIAU": "Sumatra", "JAMBI": "Sumatra",
+            "SUMATERA SELATAN": "Sumatra", "BENGKULU": "Sumatra", "LAMPUNG": "Sumatra",
+            "KEPULAUAN BANGKA BELITUNG": "Sumatra", "DKI JAKARTA": "Jawa", "JAWA BARAT": "Jawa",
+            "JAWA TENGAH": "Jawa", "DI YOGYAKARTA": "Jawa", "JAWA TIMUR": "Jawa", "BANTEN": "Jawa",
+            "KALIMANTAN BARAT": "Kalimantan", "KALIMANTAN TENGAH": "Kalimantan",
+            "KALIMANTAN SELATAN": "Kalimantan", "KALIMANTAN TIMUR": "Kalimantan",
+            "KALIMANTAN UTARA": "Kalimantan", "SULAWESI UTARA": "Sulawesi",
+            "SULAWESI TENGAH": "Sulawesi", "SULAWESI SELATAN": "Sulawesi",
+            "SULAWESI TENGGARA": "Sulawesi", "GORONTALO": "Sulawesi", "SULAWESI BARAT": "Sulawesi",
+            "BALI": "Bali & Nusa Tenggara", "NUSA TENGGARA BARAT": "Bali & Nusa Tenggara",
+            "NUSA TENGGARA TIMUR": "Bali & Nusa Tenggara", "MALUKU": "Maluku", "MALUKU UTARA": "Maluku",
+            "PAPUA": "Papua", "PAPUA BARAT": "Papua"
+        }
+        regional_provinces = [prov for prov, region in region_mapping.items() if region == selected_region]
+        df_to_analyze = df_time_series[df_time_series['Provinsi'].isin(regional_provinces)]
+        line_name = f"{selected_region} Average"
+        line_color = '#ff6b6b'
+    else:
+        # Show national average trend
+        title = "Indonesia Crime Rate Trend (2016-2023)"
+        df_to_analyze = df_time_series[df_time_series['Provinsi'] != 'INDONESIA'] if 'INDONESIA' in df_time_series['Provinsi'].values else df_time_series
+        line_name = 'National Average'
+        line_color = '#ff6b6b'
+    
+    # Calculate trend data
     years = []
     crime_rates = []
     
@@ -1355,15 +1470,18 @@ def create_crime_trend_2012_2023(df_time_series):
     
     for year_col in sorted(year_columns):
         year = int(year_col)
-        # Exclude 'INDONESIA' from calculations to get provincial average
-        df_provinces = df_time_series[df_time_series['Provinsi'] != 'INDONESIA'] if 'INDONESIA' in df_time_series['Provinsi'].values else df_time_series
         
         # Clean and convert the data to numeric, handling errors
         try:
-            # Convert to numeric, coercing errors to NaN
-            numeric_data = pd.to_numeric(df_provinces[year_col], errors='coerce')
-            # Calculate mean, skipping NaN values
-            avg_crime = numeric_data.mean()
+            if selected_province != 'All' and not df_to_analyze.empty:
+                # For province, get specific value
+                numeric_data = pd.to_numeric(df_to_analyze[year_col], errors='coerce')
+                avg_crime = numeric_data.iloc[0] if len(numeric_data) > 0 else None
+            else:
+                # For region/national, calculate average
+                numeric_data = pd.to_numeric(df_to_analyze[year_col], errors='coerce')
+                avg_crime = numeric_data.mean()
+            
             if not pd.isna(avg_crime):
                 years.append(year)
                 crime_rates.append(avg_crime)
@@ -1377,13 +1495,13 @@ def create_crime_trend_2012_2023(df_time_series):
             x=years,
             y=crime_rates,
             mode='lines+markers',
-            name='National Average',
-            line=dict(color='#ff6b6b', width=3),
-            marker=dict(size=8, color='#ff6b6b')
+            name=line_name,
+            line=dict(color=line_color, width=3),
+            marker=dict(size=8, color=line_color)
         ))
         
         fig.update_layout(
-            title="Indonesia Crime Rate Trend (2012-2023)",
+            title=title,
             xaxis_title="Year",
             yaxis_title="Crime Rate (per 100,000)",
             plot_bgcolor='#25262d',
@@ -1454,6 +1572,125 @@ def create_scatter_plot(df_filtered, x_col, y_col, title):
     
     return fig
 
+def render_provincial_metrics(df_filtered, selected_province, selected_region, df_main):
+    """Render metrics for provincial/regional data instead of OC Index"""
+    
+    if selected_province != 'All':
+        # Provincial view - show specific province data
+        province_data = df_filtered[df_filtered['Provinsi'] == selected_province].iloc[0] if not df_filtered.empty else None
+        
+        if province_data is not None and 'Tindak Pidana 2023' in province_data and 'Tindak Pidana 2022' in province_data:
+            # Crime Rate 2023 vs 2022
+            crime_2023 = province_data['Tindak Pidana 2023']
+            crime_2022 = province_data['Tindak Pidana 2022']
+            
+            if pd.notna(crime_2023) and pd.notna(crime_2022):
+                crime_change = crime_2023 - crime_2022
+                if abs(crime_change) >= 0.1:  # Show change if significant
+                    st.metric(
+                        "Crime Rate 2023",
+                        f"{crime_2023:.1f}",
+                        delta=f"{crime_change:+.1f} from 2022",
+                        delta_color="inverse",  # inverse because higher crime is worse
+                        help="Crime incidents per 100,000 population"
+                    )
+                else:
+                    st.metric(
+                        "Crime Rate 2023",
+                        f"{crime_2023:.1f}",
+                        delta="Similar to 2022",
+                        delta_color="off",
+                        help="Crime incidents per 100,000 population"
+                    )
+            else:
+                st.metric(
+                    "Crime Rate 2023",
+                    f"{crime_2023:.1f}" if pd.notna(crime_2023) else "N/A",
+                    help="Crime incidents per 100,000 population"
+                )
+            
+            # Regional ranking (rank within region)
+            if 'Region' in province_data and pd.notna(province_data['Region']):
+                region_provinces = df_main[df_main['Region'] == province_data['Region']]
+                if 'Tindak Pidana 2023' in region_provinces.columns:
+                    region_sorted = region_provinces.dropna(subset=['Tindak Pidana 2023']).sort_values('Tindak Pidana 2023', ascending=True)
+                    regional_rank = (region_sorted['Provinsi'] == selected_province).idxmax() + 1 if selected_province in region_sorted['Provinsi'].values else None
+                    total_in_region = len(region_sorted)
+                    
+                    if regional_rank:
+                        st.metric(
+                            f"Rank in {province_data['Region']}",
+                            f"#{regional_rank} of {total_in_region}",
+                            help="Regional ranking by crime rate (1 = lowest crime rate in region)"
+                        )
+            
+            # National ranking (rank among all provinces)
+            if 'Tindak Pidana 2023' in df_main.columns:
+                national_sorted = df_main.dropna(subset=['Tindak Pidana 2023']).sort_values('Tindak Pidana 2023', ascending=True)
+                national_rank = (national_sorted['Provinsi'] == selected_province).idxmax() + 1 if selected_province in national_sorted['Provinsi'].values else None
+                total_provinces = len(national_sorted)
+                
+                if national_rank:
+                    st.metric(
+                        "National Rank",
+                        f"#{national_rank} of {total_provinces}",
+                        help="National ranking by crime rate (1 = lowest crime rate in Indonesia)"
+                    )
+                    
+    elif selected_region != 'All':
+        # Regional view - show regional average
+        regional_data = df_filtered
+        
+        if not regional_data.empty and 'Tindak Pidana 2023' in regional_data.columns:
+            # Regional average crime rate
+            avg_crime_2023 = regional_data['Tindak Pidana 2023'].mean()
+            avg_crime_2022 = regional_data['Tindak Pidana 2022'].mean() if 'Tindak Pidana 2022' in regional_data.columns else None
+            
+            if pd.notna(avg_crime_2023) and pd.notna(avg_crime_2022):
+                crime_change = avg_crime_2023 - avg_crime_2022
+                if abs(crime_change) >= 0.1:
+                    st.metric(
+                        f"{selected_region} Avg Crime Rate",
+                        f"{avg_crime_2023:.1f}",
+                        delta=f"{crime_change:+.1f} from 2022",
+                        delta_color="inverse",
+                        help="Average crime rate 100.000 population for the region"
+                    )
+                else:
+                    st.metric(
+                        f"{selected_region} Avg Crime Rate",
+                        f"{avg_crime_2023:.1f}",
+                        delta="Similar to 2022",
+                        delta_color="off",
+                        help="Average crime rate per 100.000 population for the region"
+                    )
+            else:
+                st.metric(
+                    f"{selected_region} Avg Crime Rate",
+                    f"{avg_crime_2023:.1f}" if pd.notna(avg_crime_2023) else "N/A",
+                    help="Average crime rate 100.000 population for the region"
+                )
+            
+            # Regional rank among all regions
+            region_averages = df_main.groupby('Region')['Tindak Pidana 2023'].mean().dropna().sort_values(ascending=True)
+            regional_rank = list(region_averages.index).index(selected_region) + 1 if selected_region in region_averages.index else None
+            total_regions = len(region_averages)
+            
+            if regional_rank:
+                st.metric(
+                    "Regional Rank",
+                    f"#{regional_rank} of {total_regions}",
+                    help="Regional ranking by average crime rate (1 = lowest average crime rate)"
+                )
+            
+            # Number of provinces in region
+            num_provinces = len(regional_data)
+            st.metric(
+                "Provinces in Region",
+                str(num_provinces),
+                help="Number of provinces in this region"
+            )
+
 def main():
     st.title("🇮🇩 Indonesia Criminality Dashboard")
     # st.markdown("### Interactive Analysis of Provincial Crime Data")
@@ -1512,7 +1749,13 @@ def main():
     st.sidebar.write(f"📊 **Provinces shown:** {num_provinces}")
     
     # Main layout - First row
-    st.markdown("## National Overview")
+    # Dynamic header based on selection
+    if selected_province != 'All':
+        st.markdown("## Provincial Overview")
+    elif selected_region != 'All':
+        st.markdown("## Regional Overview")
+    else:
+        st.markdown("## National Overview")
     
     # First row: Key metrics and main analysis
     metrics_col, main_col = st.columns([1, 3])
@@ -1520,14 +1763,14 @@ def main():
     # Key metrics in the left column - use container to control height
     with metrics_col:
         with st.container():
-            render_key_metrics(df_filtered, selected_province, oc_data)
+            render_key_metrics(df_filtered, selected_province, oc_data, selected_region, df_main)
     
     # Main content in the right column
     with main_col:
         trend_col, top_col = st.columns([3, 2])
         
         with trend_col:
-            trend_fig = create_crime_trend_2012_2023(df_time_series)
+            trend_fig = create_crime_trend_2012_2023(df_time_series, selected_province, selected_region)
             if trend_fig:
                 st.plotly_chart(trend_fig, use_container_width=True, config={'displayModeBar': False})
             else:
@@ -1577,7 +1820,7 @@ def main():
         # Gini vs Crime scatter plot
         if 'gini_ratio_2023' in df_filtered.columns and 'Tindak Pidana 2023' in df_filtered.columns:
             gini_scatter = create_scatter_plot(
-                df_filtered, 
+                df_filtered,
                 'gini_ratio_2023', 
                 'Tindak Pidana 2023',
                 "Income Inequality vs Crime Rate"
